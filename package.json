@@ -1,0 +1,15 @@
+{
+  "name": "smart-diary-demo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Smart Diary: concept demo of retrieval-augmented generation in the SSC App (Group 3 pitch). Illustrative data only.",
+  "scripts": {
+    "start": "node server/server.mjs",
+    "test": "node --test test/engine.test.js",
+    "build": "node scripts/build.mjs"
+  },
+  "engines": { "node": ">=20.12" },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.8.0"
+  }
+}
