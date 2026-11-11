@@ -193,3 +193,40 @@ test('Markdown around the brief format is tolerated', async () => {
   assert.equal(out.brief.refs.filter((r) => r.lesson).length, 3);
   assert.equal(out.brief.conditions.length, 3);
 });
+
+test('marker writer: [S#] markers become citations; unmarked sentences are deleted', async () => {
+  const idx = E.buildIndex();
+  const q = 'Which heat-recovery projects since 2019 needed requalification, and how long did it take?';
+  const write = async (prompt) => {
+    const text = E.markerPrompt(prompt);
+    assert.match(text, /\[S1\] SPOT query/);
+    assert.match(text, /A sentence or line without a marker is deleted/);
+    const reply = 'Here is what the records show. Two projects needed requalification: 10xxxx3, about four months [S2], and 10xxxx7, about three months [S3]. No other records found [S1].';
+    return { content: E.markersToContent(reply, prompt.sources), model: 'test' };
+  };
+  const out = await E.rag.ask(idx, q, null, write);
+  const text = out.answer.sentences.map((s) => s.text).join(' ');
+  assert.equal(text, 'Two projects needed requalification: 10xxxx3, about four months, and 10xxxx7, about three months. No other records found.');
+  assert.deepEqual(out.answer.deleted, ['Here is what the records show.']);
+  assert.deepEqual(out.answer.sources.map((s) => s.chip), ['DECK P. 9', 'DIARY · GO-LIVE', 'SPOT QUERY']);
+});
+
+test('marker writer works with the line format of the brief', async () => {
+  const idx = E.buildIndex();
+  const write = async (prompt) => {
+    const i = prompt.sources.findIndex((s) => s.id === '10xxxx1:d-closeout' && s.ref === 1) + 1;
+    const reply = `REF 1 LESSON: Heat demand fell in summer, so savings came only from October to April [S${i}]\nREF 1 QUESTION: Is there heat demand at the sink all year? [S${i}]\nREF 1 CONDITION: Winter and summer split || Split the expected savings into winter and summer. [S${i}]\nThis kind of project usually pays back fast.`;
+    return { content: E.markersToContent(reply, prompt.sources), model: 'test' };
+  };
+  const out = await E.rag.brief(idx, queryFor('10xxxxx'), write);
+  assert.match(out.brief.refs[0].lesson.text, /October to April/);
+  assert.equal(out.brief.refs[0].condition.short, 'Winter and summer split');
+  assert.deepEqual(out.brief.deleted, ['This kind of project usually pays back fast.']);
+});
+
+test('tag prompt text lists the vocabulary', () => {
+  const np = SD.NEW_PROJECTS['10xxxxx'];
+  const t = E.tagPromptText({ title: np.title, description: np.description, spot: np.spot });
+  assert.match(t, /technology: heat recovery \| heat pump/);
+  assert.match(t, /Reply with only a JSON object/);
+});

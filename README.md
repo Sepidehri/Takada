@@ -8,10 +8,11 @@ Smart Diary is a panel inside the SSC App. For each new SSC project it shows the
 
 ---
 
-## Three ways to run it
+## Four ways to run it
 
 | | How | Generation step | Needs |
 |---|---|---|---|
+| **Link** | Open the published claude.ai link in any browser, signed in to claude.ai | **Claude** on your claude.ai account (allow it once when the page asks) | Internet, a claude.ai login |
 | **A · Double-click** | Open `dist/smart-diary.html` in Chrome or Edge | Offline writer (extractive, no model) | Nothing: no install, no internet |
 | **B · Local server** | `npm install`, then `npm start`, then open http://localhost:3000 | Offline writer | Node.js 20.12 or newer |
 | **C · Local server + Claude** | As B, with an API key in `.env` | **Claude** writes from the retrieved passages, with citations | Node.js, internet, an Anthropic API key |
@@ -125,7 +126,9 @@ npm test
 npm run build
 ```
 
-Run `npm run build` after changing anything in `js/` or `css/`, so `dist/smart-diary.html` stays in step.
+Run `npm run build` after changing anything in `js/` or `css/`, so `dist/smart-diary.html` (double-click file) and `dist/smart-diary.artifact.html` (the published claude.ai page) stay in step.
+
+In the published claude.ai page, Claude gets the retrieved passages numbered `[S1]`, `[S2]` … and must end every sentence with the numbers of its sources. Those numbers become the citations, and the same check deletes any sentence without one. Open the footer button (**RAG · …**) to switch between *Quick* (best for a live pitch) and *Balanced*, and to allow Claude once before you present.
 
 ---
 

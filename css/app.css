@@ -425,11 +425,26 @@ mark { background: #ffe8a3; padding: 0 0.1rem; }
   .form-grid { grid-template-columns: 1fr; }
   .sdpanel { width: 100%; }
   .stephead { flex-direction: column; gap: 0.5rem; }
-  .topnav { gap: 1rem; flex-wrap: wrap; padding: 0.7rem 16px; }
-  .topnav nav { gap: 1rem; }
+  .stepper { flex-wrap: wrap; gap: 0.6rem 0.9rem; white-space: normal; }
+  .topnav { gap: 0.6rem 1rem; flex-wrap: wrap; }
+  .topnav nav { gap: 0.4rem 1rem; flex-wrap: wrap; }
+  .topnav, .wrap, .workbg, .stephead, .loopbg, .foot, .hero-dark, .hero-red {
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  .hero h1 { font-size: 2rem; }
+  .stephead h1 { font-size: 1.45rem; }
+  .card-head { flex-wrap: wrap; }
+  .foot { flex-wrap: wrap; }
+  .tbl { display: block; overflow-x: auto; }
   .m-cols { grid-template-columns: 1fr; }
-  .loop { grid-template-columns: 1fr; grid-template-rows: none; }
+  .brief-foot { grid-template-columns: 1fr; }
+  .loop { grid-template-columns: 1fr; grid-template-rows: none; gap: 0.6rem; }
+  .loop .lnode { grid-row: auto !important; grid-column: auto !important; }
   .loop .arrow, .loop .down, .back-arrow { display: none; }
   .work { height: auto; }
   .card-main { min-height: 70rem; }
+  .callout { width: 90%; }
+  .pstep-row { grid-template-columns: 1.6rem 1fr; }
+  .pstep-row .pres { grid-column: 1 / -1; }
 }

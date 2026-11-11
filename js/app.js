@@ -49,9 +49,22 @@
   /* ================================================================ */
   /* RAG client: Claude through the local server, or offline           */
   /* ================================================================ */
+  // mode: 'claude' = local server with an API key (native citations)
+  //       'artifact' = published claude.ai page, Claude on the viewer's account
+  //       'offline' = extractive writer, no model
   const RAG = { server: false, mode: 'offline', model: null, checked: false };
+  let SAMPLE = null;
   function checkServer() {
-    if (!/^https?:$/.test(location.protocol)) { RAG.checked = true; return; }
+    const local = /^https?:$/.test(location.protocol) && (!!location.port || /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname));
+    if (!local) {
+      if (window.claude && typeof window.claude.use === 'function') {
+        window.claude.use('sample')
+          .then((s) => { if (s) { SAMPLE = s; RAG.mode = 'artifact'; RAG.model = 'claude.ai'; } })
+          .catch(() => {})
+          .then(() => { RAG.checked = true; refresh('foot'); });
+      } else RAG.checked = true;
+      return;
+    }
     fetch('api/health', { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => { if (j && j.ok) { RAG.server = true; RAG.mode = j.llm ? 'claude' : 'offline'; RAG.model = j.model; } })
@@ -80,28 +93,45 @@
     return fn().then((r) => (CACHE[key] = r));
   }
   const viaServer = () => RAG.mode === 'claude';
+  const liveWriter = () => RAG.mode !== 'offline';
+  const tier = () => (S.tier === 'default' ? 'default' : 'quick');
+  // Claude inside the published page: numbered sources in, [S#] markers out.
+  async function sampleWrite(prompt) {
+    const r = await SAMPLE(E.markerPrompt(prompt), { modelTier: tier() });
+    if (/^\s*NOT FOUND\b/.test(r.text)) return { content: [{ text: 'NOT FOUND', citations: [] }], model: 'Claude · claude.ai' };
+    return { content: E.markersToContent(r.text, prompt.sources), model: 'Claude · claude.ai, ' + (r.modelTierApplied || tier()) };
+  }
+  const localWriter = () => (RAG.mode === 'artifact' && SAMPLE ? sampleWrite : null);
   function genBrief(q) {
     index();
     return cached('b|' + IDXKEY + '|' + JSON.stringify(q) + RAG.mode, () => (viaServer()
       ? postJSON('api/rag/brief', { query: q, extras: S.indexed }, 120000).catch((err) => E.rag.brief(index(), q, () => Promise.reject(err)))
-      : E.rag.brief(index(), q, null)));
+      : E.rag.brief(index(), q, localWriter())));
   }
   function genAsk(question, ctx) {
     index();
     return cached('a|' + IDXKEY + '|' + question + '|' + ctx + RAG.mode, () => (viaServer()
       ? postJSON('api/rag/ask', { question, context: ctx, extras: S.indexed }, 90000).catch((err) => E.rag.ask(index(), question, ctx, () => Promise.reject(err)))
-      : E.rag.ask(index(), question, ctx, null)));
+      : E.rag.ask(index(), question, ctx, localWriter())));
   }
   function genDraft(input) {
     return cached('d|' + JSON.stringify(input) + RAG.mode, () => (viaServer()
       ? postJSON('api/rag/draft', { input }, 90000).catch((err) => E.rag.draft(input, () => Promise.reject(err)))
-      : E.rag.draft(input, null)));
+      : E.rag.draft(input, localWriter())));
   }
   function genTags(form) {
     const offline = (fallback) => ({ tags: E.suggestTags(form), writer: { mode: 'offline', model: 'rule-based tagger', fallback } });
+    const viaSample = async () => {
+      const t0 = Date.now();
+      try {
+        const tags = E.validateTags(await SAMPLE.json(E.tagPromptText(form), { modelTier: 'quick' }));
+        if (!tags) return offline('Claude returned tags outside the vocabulary');
+        return { tags, writer: { mode: 'claude', model: 'Claude · claude.ai, quick', ms: Date.now() - t0 } };
+      } catch (e) { return offline((e && (e.message || e.code)) || 'Claude unavailable'); }
+    };
     return cached('t|' + JSON.stringify(form) + RAG.mode, () => (viaServer()
       ? postJSON('api/rag/tags', { form }, 60000).catch((err) => offline(err.message))
-      : Promise.resolve(offline())));
+      : RAG.mode === 'artifact' && SAMPLE ? viaSample() : Promise.resolve(offline())));
   }
 
   /* ================================================================ */
@@ -222,11 +252,12 @@
     </header>`;
   }
   function foot() {
-    const live = RAG.mode === 'claude';
+    const live = RAG.mode !== 'offline';
+    const label = RAG.mode === 'claude' ? 'RAG · Claude ' + esc(RAG.model || '') : RAG.mode === 'artifact' ? 'RAG · Claude in claude.ai' : RAG.checked ? 'RAG · offline writer' : 'RAG · checking…';
     return `<footer class="foot" id="foot">
-      <span><b>Smart Diary</b> · concept mock-up for Takeda Vienna · AI-supported knowledge management in the SSC Project Review</span>
+      <span><b>Smart Diary</b> · Group 3 concept mock-up for Takeda Vienna · AI-supported knowledge management in the SSC Project Review</span>
       <span class="grow"></span>
-      <button class="mode" data-act="rag-info" title="How retrieval and generation work in this demo"><span class="dot ${live ? 'live' : ''}"></span>${live ? 'RAG · Claude ' + esc(RAG.model || '') : RAG.checked ? 'RAG · offline writer' : 'RAG · checking…'}</button>
+      <button class="mode" data-act="rag-info" title="How retrieval and generation work in this demo"><span class="dot ${live ? 'live' : ''}"></span>${label}</button>
       <span class="illus">ILLUSTRATIVE DATA · ALL PROJECTS, IDS AND FIGURES INVENTED</span>
     </footer>`;
   }
@@ -514,7 +545,7 @@
       ['Filter by tags', 'Same technology class or utility', `<span class="hot">${R.steps.filter.total}</span> indexed projects → <span class="hot">${R.steps.filter.candidates.length}</span> candidates${R.steps.filter.widened ? ' (widened)' : ''}`],
       ['Hybrid search', 'Keyword (BM25) + semantic, over cards, decks, decisions, diary', `<span class="hot">${R.steps.filter.candidates.length}</span> projects → <span class="hot">${R.steps.search.matched}</span> matching passages`],
       ['Re-rank, apply floor', 'Weak matches below the floor are dropped', `${sc.length} scored → <span class="hot">${shown} shown</span>, ${sc.length - shown} too weak <span class="minibars">${sc.map((x) => `<i class="${x.shown ? '' : 'weak'}" style="height:${Math.round(x.score * 100)}%"></i>`).join('')}<span class="fl" style="bottom:${Math.round(R.steps.rerank.floor * 100)}%"></span></span>`],
-      ['Write the brief', 'Only from those passages, one source per sentence', res ? (del ? `<s>${del} sentence${del > 1 ? 's' : ''} without a source</s> → deleted` : 'Citation check: every line has a source') + ` · ${res.writer.mode === 'claude' ? 'Claude' : res.writer.mode === 'none' ? 'nothing to write' : 'offline writer'}` : step >= 4 ? `<span class="spin"></span> ${viaServer() ? 'Claude is writing from ' + R.refs.length * 3 + '+ passages…' : 'Writing…'}` : ''],
+      ['Write the brief', 'Only from those passages, one source per sentence', res ? (del ? `<s>${del} sentence${del > 1 ? 's' : ''} without a source</s> → deleted` : 'Citation check: every line has a source') + ` · ${res.writer.mode === 'claude' ? 'Claude' : res.writer.mode === 'none' ? 'nothing to write' : 'offline writer'}` : step >= 4 ? `<span class="spin"></span> ${liveWriter() ? 'Claude is writing from the retrieved passages…' : 'Writing…'}` : ''],
       ['Log', 'What was shown, to whom and when', 'Audit trail kept with the SSC record']
     ];
     const details = [
@@ -583,7 +614,7 @@
     }
     p.asks.forEach((a) => {
       html += `<div class="msg-user"><small>L. HOFER · PM</small><div class="bubble">${esc(a.q)}</div></div>`;
-      if (a.pending) { html += `<div class="msg-ans"><span class="spin"></span> Searching Takeda records${viaServer() ? ' · Claude is writing from the retrieved passages' : ''}…</div>`; return; }
+      if (a.pending) { html += `<div class="msg-ans"><span class="spin"></span> Searching Takeda records${liveWriter() ? ' · Claude is writing from the retrieved passages' : ''}…</div>`; return; }
       const ans = a.answer;
       if (ans.notFound) {
         html += `<div class="notfound-card"><b>NOT FOUND</b><div>No Takeda record answers this question. Nothing passed the similarity floor, so Smart Diary does not guess. Ask the owners of comparable projects, or rephrase.</div><div class="writer-line">${writerText(a.writer)}</div></div>`;
@@ -610,7 +641,7 @@
     if (!p.decision) {
       return html + `<div class="sd-empty"><p>Diary entry 1 is drafted after the SSC decision at Review 1.</p><button class="btn" data-act="open-decision">Record the Review 1 decision</button></div>`;
     }
-    if (UI.drafting) return html + `<div class="entry"><span class="spin"></span> Drafting entry 1 from the SSC App form, the Review 1 outcome and the references used${viaServer() ? ' · Claude' : ''}…</div>`;
+    if (UI.drafting) return html + `<div class="entry"><span class="spin"></span> Drafting entry 1 from the SSC App form, the Review 1 outcome and the references used${liveWriter() ? ' · Claude' : ''}…</div>`;
     if (!e) return html + `<div class="sd-empty"><p>Draft entry 1 from what is already written.</p><button class="btn" data-act="draft">Draft diary entry 1</button></div>`;
     const tags = tagValues(p.tags);
     const typing = UI.typing && UI.typing.pid === p.id;
@@ -652,12 +683,20 @@
     return infoModal(r.owner.name, r.owner.role, `<p>Owner of <b>${esc(r.id)}</b> · ${esc(r.title)} (${r.year}).</p><p>Smart Diary names the person who knows why an option was rejected and what went wrong: the knowledge that today sits only in people’s heads. Call before Review 2.</p><p class="small">Invented person for the demo.</p>`);
   }
   function ragInfo() {
-    const live = RAG.mode === 'claude';
-    return infoModal('How the RAG works in this demo', live ? `Live · Claude ${RAG.model}` : 'Offline writer · no language model connected', `
+    const m = RAG.mode;
+    const sub = m === 'claude' ? `Live · Claude ${RAG.model} through the local server` : m === 'artifact' ? 'Live · Claude on your claude.ai account' : 'Offline writer · no language model connected';
+    const gen = m === 'claude'
+      ? `The retrieved passages go to <b>Claude (${esc(RAG.model)})</b> as search-result blocks with citations on. Claude writes only from them.`
+      : m === 'artifact'
+        ? 'The retrieved passages go to <b>Claude</b>, on the account of whoever views this page, numbered [S1], [S2] … Claude must end every sentence with the numbers of its sources; those become the citations.'
+        : 'No model is connected here, so an extractive writer composes the text from the retrieved passages.';
+    return infoModal('How the RAG works in this demo', sub, `
       <p><b>1–4 · Retrieve</b> runs for real on ${index().projects.length} invented projects and ${index().N} passages: tag filter, hybrid search (BM25 keyword + bilingual concept vectors), re-rank, similarity floor. Counts and totals are queries on SPOT fields.</p>
-      <p><b>5 · Generate.</b> ${live ? `The retrieved passages go to <b>Claude (${esc(RAG.model)})</b> as search-result blocks with citations on. Claude writes only from them.` : 'No API key is connected, so an extractive writer composes the text from the retrieved passages. Start the server with an API key to let Claude write.'} Then the citation check runs: <b>a sentence without a source is deleted</b>. If nothing passes the floor, the answer is “not found”.</p>
+      <p><b>5 · Generate.</b> ${gen} Then the citation check runs: <b>a sentence without a source is deleted</b>. If nothing passes the floor, the answer is “not found”. If Claude is unavailable, the offline writer answers and the screen says so.</p>
       <p><b>6 · Log.</b> Every brief, answer, decision and entry goes to the audit log.</p>
-      ${live ? '' : `<p class="small">To use Claude: <span class="kbd">npm install</span>, put <span class="kbd">ANTHROPIC_API_KEY=…</span> in <span class="kbd">.env</span>, run <span class="kbd">npm start</span> and open http://localhost:3000. If the network fails during the pitch, the app falls back to the offline writer on its own.</p>`}`);
+      ${m === 'artifact' ? `<p><b>Claude speed:</b> <button class="btn sm ${tier() === 'quick' ? '' : 'ghost'}" data-act="tier" data-v="quick">Quick (live pitch)</button> <button class="btn sm ${tier() === 'default' ? '' : 'ghost'}" data-act="tier" data-v="default">Balanced (better text, slower)</button></p>
+        <p>The first call asks you to allow this page to use Claude. Allow it once before the pitch: <button class="btn outline sm" data-act="warm-claude">Allow Claude now</button> <span class="small" id="warm-msg">${esc(UI.warm || '')}</span></p>` : ''}
+      ${m === 'offline' ? `<p class="small">To let Claude write: open the published link of this page in claude.ai, or run the local server with an API key (<span class="kbd">npm install</span>, <span class="kbd">ANTHROPIC_API_KEY=…</span> in <span class="kbd">.env</span>, <span class="kbd">npm start</span>, then http://localhost:3000).</p>` : ''}`);
   }
   function decisionHTML() {
     const p = proj();
@@ -870,7 +909,7 @@
     p.tagsConfirmed = false;
     p.tags = mark(E.suggestTags(form));
     p.tagsFrom = { mode: 'offline', model: 'rule-based tagger' };
-    UI.tagBusy = viaServer();
+    UI.tagBusy = liveWriter();
     refresh('tags'); refresh('stephead');
     const res = await genTags(form);
     UI.tagBusy = false;
@@ -1250,7 +1289,18 @@
     'guided-prev': () => prev(),
     'guided-exit': () => { S.guided = null; UI.callout = null; render(); },
     notes: () => { S.notes = !S.notes; refresh('presenter'); save(); },
-    'reset-demo': () => { if (confirm('Reset the demo projects, the index and the log?')) { resetDemo(); S.log = []; S.guided = null; S.view = 'home'; for (const k in CACHE) delete CACHE[k]; render(); save(); } },
+    'reset-demo': (d, el) => {
+      if (!UI.resetArmed) { UI.resetArmed = true; el.textContent = 'Click again to reset'; setTimeout(() => { UI.resetArmed = false; if (el.isConnected) el.textContent = 'Reset demo data'; }, 4000); return; }
+      UI.resetArmed = false; resetDemo(); S.log = []; S.guided = null; S.view = 'home'; for (const k in CACHE) delete CACHE[k]; render(); save(); toast('Demo data reset');
+    },
+    tier: (d) => { S.tier = d.v; for (const k in CACHE) delete CACHE[k]; refresh('overlay'); save(); },
+    'warm-claude': async () => {
+      if (!SAMPLE) return;
+      UI.warm = 'Asking…'; refresh('overlay');
+      try { await SAMPLE('Reply with the single word OK.', { modelTier: 'quick' }); UI.warm = 'Claude is allowed. You are ready.'; }
+      catch (e) { UI.warm = e && e.code === 'not_granted' ? 'Not allowed: the demo will use the offline writer.' : 'Claude did not answer (' + ((e && e.code) || 'error') + '). The demo will use the offline writer if this persists.'; }
+      refresh('overlay');
+    },
     'open-project': (d) => { S.pid = d.pid; proj(d.pid); S.view = 'work'; UI.lookupErr = ''; render(); save(); },
     'new-project': () => { S.drafts = (S.drafts || 0) + 1; const id = 'draft-' + S.drafts; S.projects[id] = newProject(id); S.pid = id; S.view = 'work'; render(); save(); },
     'hero-search': () => {
@@ -1267,7 +1317,12 @@
     'fill-example': () => { const p = proj(); fillForm(p, false); save(); },
     lookup: () => { const p = proj(); p.form.spotId = ($('#f-spot') || {}).value || p.form.spotId; if (doLookup(p)) { const np = Object.values(SD.NEW_PROJECTS).find((x) => x.spotId === p.form.spotId.trim()); if (np && !p.form.title && !String(p.id).startsWith('10')) p.form.title = np.title; } render(); save(); },
     star: (d) => { const p = proj(); p.form.stars = Number(d.n); render(); save(); },
-    attach: () => { const p = proj(); const name = prompt('File name to attach (demo, nothing is uploaded):', 'Energy audit extract.pdf'); if (name) { p.form.attachments.push(name); render(); save(); } },
+    attach: () => {
+      const inp = document.createElement('input');
+      inp.type = 'file';
+      inp.onchange = () => { const f = inp.files && inp.files[0]; if (f) { const p = proj(); p.form.attachments.push(f.name); render(); save(); toast('Attached ' + f.name + ' (demo: only the name is kept)'); } };
+      inp.click();
+    },
     'suggest-tags': () => suggestTags(proj(), true),
     'tag-toggle': (d) => { const p = proj(); const t = p.tags[d.k]; if (t && t.value) { t.checked = !t.checked; refresh('tags'); save(); } },
     'confirm-tags': () => confirmTags(proj(), false).then(() => { if (!S.guided) { const p = proj(); openPanel(p, 'compare'); render(); runCompare(p, true); } }),
@@ -1376,7 +1431,7 @@
     else if (['ArrowLeft', 'PageUp'].includes(e.key)) { if (S.guided) { e.preventDefault(); prev(); } }
     else if (e.key === 'n' || e.key === 'N') { if (S.guided) { S.notes = !S.notes; refresh('presenter'); save(); } }
     else if (e.key === 'f' || e.key === 'F') {
-      try { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen(); } catch (err) { /* not allowed */ }
+      try { const pr = document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen(); if (pr && pr.catch) pr.catch(() => {}); } catch (err) { /* not allowed here */ }
     }
   });
 

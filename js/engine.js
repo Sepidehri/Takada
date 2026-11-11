@@ -1055,6 +1055,75 @@
   };
 
   /* ================================================================== */
+  /* Writers without native citations (Claude inside a claude.ai page)   */
+  /* ================================================================== */
+  /* The same retrieved passages, numbered [S1] [S2] …; Claude ends every
+     sentence or line with the markers it relied on. The markers become
+     citations, so the citation check below works exactly as with the API's
+     search_result citations: a sentence without a marker is deleted. */
+  E.markerPrompt = function (prompt) {
+    var src = prompt.sources.map(function (s, i) {
+      return '[S' + (i + 1) + '] ' + s.label + ' · ' + s.title + (s.lang === 'de' ? ' (German original)' : '') + '\n' + s.blocks.join(' ');
+    }).join('\n\n');
+    return prompt.system + '\n\nSOURCES\n' + src + '\n\nTASK\n' + prompt.user +
+      '\n\nCITATIONS: end every sentence or line with the marker of each source it relies on, for example [S2] or [S2][S5]. ' +
+      'Use only the markers listed under SOURCES. A sentence or line without a marker is deleted. Plain text, no Markdown.';
+  };
+  function overlapBlock(src, text) {
+    var want = {};
+    tokens(text).forEach(function (w) { want[w] = 1; });
+    var best = 0, bestN = -1;
+    src.blocks.forEach(function (b, k) {
+      var n = tokens(b).filter(function (w) { return want[w]; }).length;
+      if (n > bestN) { bestN = n; best = k; }
+    });
+    return best;
+  }
+  E.markersToContent = function (text, sources) {
+    var MARK = /\[S\d+\](?:\s*\[S\d+\])*/;
+    // "fact [S1]." → "fact. [S1]" so the marker follows its sentence
+    var t = String(text || '').replace(/((?:[ \t]*\[S\d+\])+)[ \t]*([.,;:!?])/g, '$2$1');
+    var parts = t.split(/(\[S\d+\](?:[ \t]*\[S\d+\])*)/);
+    var out = [];
+    parts.forEach(function (part) {
+      if (!part) return;
+      if (MARK.test(part) && /^\[S/.test(part)) {
+        var prev = out[out.length - 1];
+        if (!prev) return;
+        // The marker belongs to the last sentence or line before it only.
+        var spans = sentenceSpans(' ' + prev.text);
+        if (spans.length > 1) {
+          var cut = spans[spans.length - 1][0] - 1;
+          var head = prev.text.slice(0, cut), tail = prev.text.slice(cut);
+          prev.text = head;
+          prev = { text: tail, citations: [] };
+          out.push(prev);
+        }
+        (part.match(/\d+/g) || []).forEach(function (d) {
+          var i = Number(d) - 1;
+          var s = sources[i];
+          if (!s) return;
+          var b = overlapBlock(s, prev.text);
+          if (!prev.citations.some(function (c) { return c.search_result_index === i; })) {
+            prev.citations.push({ search_result_index: i, start_block_index: b, end_block_index: b + 1, cited_text: s.blocks[b] || '' });
+          }
+        });
+        return;
+      }
+      out.push({ text: part, citations: [] });
+    });
+    return out;
+  };
+  /* Tags as one JSON object, for writers without structured output. */
+  E.tagPromptText = function (form) {
+    var p = E.tagPrompt(form);
+    return p.system + '\n\n' + p.user +
+      '\n\nReply with only a JSON object with the keys technology, utility, scope, area, equipment and capex, each exactly one value from its list below, ' +
+      'and reasons: an object with the keys technology, utility and equipment, each at most 12 words.\n' +
+      SD.TAG_TYPES.map(function (t) { return t.key + ': ' + SD.VOCAB[t.key].join(' | '); }).join('\n');
+  };
+
+  /* ================================================================== */
   /* Orchestration: retrieve → write (Claude or offline) → check         */
   /* ================================================================== */
   function runWriter(write, prompt, offline) {
