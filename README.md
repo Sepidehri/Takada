@@ -249,6 +249,8 @@ The app's **PILOT** page runs the same Gate B demo set in the browser and shows 
 | **Gate C, week 24** | Is it used? At least 70 % of pilot proposals cite a reference |
 | **Today's ask** | **Approve Phase 0:** a four-week data check on 20 past projects, about 12 person-days, roughly €7k |
 
+How Takeda would use it day to day, and how DD&T would build it on Databricks (Delta tables, Unity Catalog, Databricks AI Search, formerly Mosaic AI Vector Search, Foundation Model APIs, MLflow) or on Azure (Azure AI Search, Azure OpenAI): see [docs/REAL-WORLD-ARCHITECTURE.md](docs/REAL-WORLD-ARCHITECTURE.md).
+
 *The scarce resource is not intelligence. It is structured, trusted, reusable knowledge.*
 
 ## Background and AI transparency

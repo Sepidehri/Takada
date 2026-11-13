@@ -135,7 +135,7 @@ This matches slide 19 (AI transparency). Say it openly: using AI to build an AI 
 | In this prototype | In the pilot (slides 11–14) |
 |---|---|
 | Invented data | SPOT export, approval decks and SSC minutes, checked in Phase 0 |
-| "Meaning" search through a hand-made concept dictionary | An embedding model and a search service such as Azure AI Search |
+| "Meaning" search through a hand-made concept dictionary | A multilingual embedding model in Databricks AI Search (formerly Mosaic AI Vector Search) or Azure AI Search |
 | Claude on claude.ai or through the Anthropic API | A model approved by DD&T in Takeda's own tenant; no training on Takeda data |
 | Overnight index is a button | A nightly job |
 | Browser storage | Takeda's systems, with access rights inherited and every answer logged |
@@ -165,6 +165,9 @@ Not in the prototype. It uses a bilingual concept vocabulary, which is enough fo
 
 **What does one brief cost?**
 On claude.ai it uses the viewer's own plan. Through the API, a few cents per brief.
+
+**Could this run on Databricks?** (Takeda mentioned it runs Databricks)
+Yes. The sources go into Delta tables under Unity Catalog. Databricks AI Search (formerly Mosaic AI Vector Search) does the hybrid search, with our tags as filters and its built-in reranker. A model served in the workspace, for example Claude through Databricks' Foundation Model APIs, writes the brief. Our citation check and the similarity floor stay in our code, and MLflow evaluates it for Gate B. If DD&T prefers Azure, Azure AI Search does the same. Details: [REAL-WORLD-ARCHITECTURE.md](REAL-WORLD-ARCHITECTURE.md).
 
 **Could this run at Takeda?**
 Yes. It is the same pattern Takeda already uses in TAK GPT and AIMI (slide 12). It needs the SPOT export, a platform approved by DD&T and IT security, and the works council involved, which is exactly what Phase 0 checks.
