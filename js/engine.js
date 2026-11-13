@@ -848,6 +848,8 @@
       'Answer only from the search results provided: the site’s own SPOT records, approval decks, SSC decisions and diary entries. ' +
       'Every sentence must be supported by a search result. Never use general knowledge, never estimate, never give advice; people decide. ' +
       'Counts and totals: use the SPOT query result exactly as given. Mention project IDs such as 10xxxx3. Some records are in German; answer in English. ' +
+      'Answer the question directly in your first sentence, for example by naming the projects and the figures it asks for. ' +
+      'Do not describe the search, the query or the records you were given; just answer. ' +
       'Keep the answer to at most four sentences, plain text, no headings, no lists. ' +
       'If the search results do not answer the question, reply with exactly: NOT FOUND';
     var ctx = A.context ? '\n\nContext of the current project: ' + A.context : '';

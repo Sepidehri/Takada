@@ -345,6 +345,7 @@ h6.cap { font-size: 0.66rem; letter-spacing: 0.1em; text-transform: uppercase; m
 .addcond input { flex: 1; border: 1px solid #c9ced4; padding: 0.4rem 0.55rem; font-size: 0.84rem; }
 
 .drawer-scrim { justify-content: flex-end; align-items: stretch; }
+.scrim.still, .scrim.still .modal, .scrim.still .drawer { animation: none; }
 .drawer { width: min(34rem, 92vw); background: #fff; display: flex; flex-direction: column; animation: slide 0.25s ease-out; }
 @keyframes slide { from { transform: translateX(40px); opacity: 0; } }
 .d-head { background: var(--char); color: #fff; padding: 1rem 1.2rem; position: relative; }

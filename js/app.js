@@ -177,6 +177,12 @@
     clearTimeout(toastT);
     toastT = setTimeout(() => { t.innerHTML = ''; }, 3400);
   }
+  function clip(text, max) {
+    if (text.length <= max) return text;
+    const cut = text.slice(0, max);
+    const end = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('? '));
+    return end > max * 0.5 ? cut.slice(0, end + 1) : cut.slice(0, cut.lastIndexOf(' ')) + ' …';
+  }
   const tagValues = (t) => { const o = {}; Object.keys(t || {}).forEach((k) => (o[k] = t[k].value)); return o; };
   const fmtDate = E.fmtDate;
   const dayName = (iso) => (iso ? ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][new Date(iso + 'T12:00:00').getDay()] + ' ' + fmtDate(iso) : '');
@@ -284,13 +290,14 @@
     else if (v === 'loop') html = `<main class="view">${loopView()}</main>`;
     else if (v === 'records') html = topnav('records') + `<main class="view">${recordsView()}</main>`;
     else if (v === 'pilot') html = topnav('pilot') + `<main class="view">${pilotView()}</main>`;
-    app.innerHTML = html + foot() + `<div id="overlay">${overlay()}</div><div id="toast"></div>` + presenter();
+    const still = !!document.querySelector('#overlay .scrim');
+    app.innerHTML = html + foot() + `<div id="overlay">${overlay(still)}</div><div id="toast"></div>` + presenter();
     afterRender();
   }
   function refresh(part) {
     const map = {
       foot: ['#foot', foot], panel: ['#sdpanel', panel], tags: ['#tags', tagsStrip], stephead: ['#stephead', stephead],
-      overlay: ['#overlay', () => `<div id="overlay">${overlay()}</div>`], presenter: ['#presenter', presenter], cited: ['#cited', citedBox]
+      overlay: ['#overlay', () => `<div id="overlay">${overlay(!!document.querySelector('#overlay .scrim'))}</div>`], presenter: ['#presenter', presenter], cited: ['#cited', citedBox]
     };
     const m = map[part];
     if (!m) return render();
@@ -666,7 +673,13 @@
   /* ================================================================ */
   /* Overlays: decision, source drawer, record, info                   */
   /* ================================================================ */
-  function overlay() {
+  // `still`: a window is already open, so update it in place without
+  // replaying its opening animation.
+  function overlay(still) {
+    const html = overlayHTML();
+    return still ? html.replace('class="scrim', 'class="scrim still') : html;
+  }
+  function overlayHTML() {
     if (UI.drawer) return drawerHTML();
     if (UI.modal === 'decision') return decisionHTML();
     if (UI.modal === 'ssc') return infoModal('SSC information', 'Sustainability Steering Committee', `<p>The SSC meets every Thursday at 14:35. Each project gets up to 20 minutes.</p><p><b>Review 1 · Planning:</b> sustainability potentials are identified. <b>Review 2 · Investment approval:</b> the business case is approved.</p><p>With Smart Diary, the pre-read of Review 1 contains the reference brief: the same page for the PM and for every SSC member. The SSC keeps full decision authority; Smart Diary changes what is on the table.</p>`);
@@ -722,7 +735,7 @@
           ${b ? b.refs.map((r) => `<div class="mini-ref"><b>${r.rank} · ${esc(r.title)} · ${r.year}</b><small>${r.pct != null ? 'Achieved ' + r.pct + ' %' : 'Achieved not recorded'} · ${esc(r.lesson ? r.lesson.text : '')}</small></div>`).join('') : ''}
           ${b && b.notFound ? `<div class="mini-ref nf"><b>Not found</b><small>${esc(b.notFound.text)}</small></div>` : ''}
           <h6 class="cap" style="margin-top:.9rem">Asked in the meeting</h6>
-          <div class="mini-ref">${lastAsk ? `<small>${esc(lastAsk.q)}</small><b>${esc(lastAsk.answer.sentences.map((s) => s.text).join(' ').slice(0, 220))}</b>` : '<small>Nothing asked yet.</small>'}</div>
+          <div class="mini-ref">${lastAsk ? `<small>${esc(lastAsk.q)}</small><b>${esc(clip(lastAsk.answer.sentences.map((s) => s.text).join(' '), 260))}</b>` : '<small>Nothing asked yet.</small>'}</div>
           <p class="small">The SSC keeps full decision authority. Smart Diary changes what is on the table.</p>
         </div>
       </div></div></div>`;

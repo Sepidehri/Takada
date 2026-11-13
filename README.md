@@ -56,7 +56,7 @@ The app follows one invented project from input to SSC decision: *heat recovery 
 | ![Ask](docs/screenshots/ask.png) **Ask.** The count comes from a SPOT query, and every sentence has a source. | ![SSC decision](docs/screenshots/ssc-decision.png) **SSC decision.** Conditions come from the lessons of the references. |
 | ![Diary entry](docs/screenshots/write-diary-entry.png) **Write.** Diary entry 1 is drafted from the form and the decision, then confirmed. | ![The loop](docs/screenshots/loop.png) **The loop.** The confirmed entry is indexed and shows up in the next project's brief. |
 
-A **presenter mode** runs the walkthrough as ten scenes, one per key press (`→`, `Space` or a presentation clicker). `N` shows the speaker's line for the scene, and `F` switches to full screen.
+A **presenter mode** runs the walkthrough as ten scenes, one per key press (`→`, `Space` or a presentation clicker). `N` shows the speaker's line for the scene, and `F` switches to full screen. The [presenter guide](docs/PRESENTER-GUIDE.md) has what to say in each scene and answers to likely questions.
 
 ## How it works: retrieval-augmented generation
 
