@@ -55,6 +55,43 @@ Takeda mentioned that it runs **Databricks**. Smart Diary fits it directly. If D
 
 ---
 
+## 4 · Hard questions about the real implementation
+
+**Data**
+- *"Is 'achieved' really measured?"* Often not per project: meters cover buildings, not projects, and several projects can share one meter. Smart Diary shows "not recorded" rather than inventing a figure; linking the sustainability dashboard to SPOT IDs is an open question on slide 13.
+- *"Which deck version is indexed?"* Only the approved version, linked to its SPOT ID. Drafts are skipped. If decks are not named by SPOT ID, Phase 0 links the 20 sample projects by hand and measures the effort.
+- *"Charts and tables in the decks?"* Text extraction misses numbers inside charts. Figures come from SPOT; decks give the reasoning. Phase 0 checks what the parser reads.
+- *"Jargon and abbreviations?"* The vocabulary includes a German–English glossary (for example WRG = Wärmerückgewinnung = heat recovery), owned by Sustainability Management.
+
+**People, privacy and the works council**
+- Diary entries and "whom to ask" name employees, so GDPR applies and, in Austria, a works-council agreement (ArbVG § 96a). The system must never be used to rate people: the logs serve audit, and usage is reported only in aggregate.
+- Lessons are written about projects, not persons. A blame-free tone and moderation by Sustainability Management keep people willing to record what went wrong.
+- EU AI Act: decision support, not a high-risk use, but the AI-literacy duty (Art. 4) applies, so users get a short training, and AI-drafted text is marked as such.
+
+**GxP**
+- Smart Diary is a knowledge tool, not a GMP record and not part of a qualification. QA confirms that, so EU GMP Annex 11 validation is not needed. Qualification facts stay in the qualified systems; the diary only points to them.
+
+**Security**
+- Access rights: in the pilot, index only documents that the SSC audience may already open. Later, mirror the document permissions in the index (Unity Catalog or Azure AI Search security filters).
+- Prompt injection: a document could contain instructions. Retrieved text is treated as data, the model has no tools that act, and every sentence must cite a source.
+- No real Takeda data goes into this demo. Real data stays in Takeda's tenant after approval.
+
+**Quality over time**
+- Pin the model version and re-run the 50 test questions after every model, prompt or vocabulary change.
+- A citation proves that a source exists, not that the sentence repeats it correctly: the cited text is shown next to the claim, and people check it.
+- A missing achieved figure is not a failure: older projects simply did not record it.
+
+**Operations and cost**
+- If Smart Diary is down, the SSC App works as today; nothing depends on it.
+- Generation takes a few seconds: retrieval shows first, the text follows.
+- Lock-in stays low: open Delta tables, a vocabulary in a table, and a model that can be swapped (the prototype already runs with three different writers).
+- After the pilot, running cost is the platform, model calls (cents per brief) and about one person-day a month for vocabulary and quality checks, an estimate that Gate C verifies.
+
+**Build or buy**
+- A ready-made document assistant (Copilot, Knowledge Assistant) covers part of Ask. It does not cover Compare (tag filters, promised vs achieved from SPOT, the similarity floor) or Write (entries at the gates). Those are the parts that close the loop, and they are custom.
+
+---
+
 ## Sources
 
 - [Databricks AI Search (formerly Mosaic AI Vector Search)](https://docs.databricks.com/aws/en/generative-ai/vector-search) · [Hybrid search GA](https://databricks.com/blog/announcing-hybrid-search-general-availability-mosaic-ai-vector-search) · [Retrieval quality guide (reranking)](https://docs.databricks.com/aws/en/vector-search/vector-search-retrieval-quality) · [Query an AI Search index](https://docs.databricks.com/aws/en/ai-search/query-ai-search)
