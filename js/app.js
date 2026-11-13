@@ -184,6 +184,8 @@
     return end > max * 0.5 ? cut.slice(0, end + 1) : cut.slice(0, cut.lastIndexOf(' ')) + ' …';
   }
   const tagValues = (t) => { const o = {}; Object.keys(t || {}).forEach((k) => (o[k] = t[k].value)); return o; };
+  // The tags the PM kept: a ticked tag is used, an unticked one is left out.
+  const usedTags = (t) => { const o = {}; Object.keys(t || {}).forEach((k) => { if (t[k].checked && t[k].value) o[k] = t[k].value; }); return o; };
   const fmtDate = E.fmtDate;
   const dayName = (iso) => (iso ? ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][new Date(iso + 'T12:00:00').getDay()] + ' ' + fmtDate(iso) : '');
   const nowStr = () => { const d = new Date(); return d.toLocaleDateString('de-AT') + ' ' + d.toTimeString().slice(0, 5); };
@@ -485,19 +487,23 @@
       return `<div id="tags" class="tags-strip"><div class="tags-top"><span class="badge red">New</span><h5>Smart Diary · six tags</h5><span class="grow"></span><button class="btn sm" data-act="suggest-tags">Suggest six tags</button></div>
         <div class="tags-sub">Suggested from the form fields and the SPOT figures, from Takeda’s controlled vocabulary. The PM confirms or corrects them.</div></div>`;
     }
-    const all = SD.TAG_TYPES.every((t) => p.tags[t.key] && p.tags[t.key].checked && p.tags[t.key].value);
+    const n = SD.TAG_TYPES.filter((t) => p.tags[t.key] && p.tags[t.key].checked && p.tags[t.key].value).length;
     const from = p.tagsFrom || {};
+    const head = p.tagsConfirmed ? `${n} tag${n === 1 ? '' : 's'} confirmed${n < 6 ? ` · ${6 - n} left out` : ''}` : n === 6 ? '6 tags suggested' : `${n} of 6 tags ticked`;
     return `<div id="tags" class="tags-strip ${p.tagsConfirmed ? 'confirmed' : ''}">
-      <div class="tags-top"><span class="badge red">New</span><h5>${p.tagsConfirmed ? '6 tags confirmed' : '6 tags suggested'} · Takeda controlled vocabulary</h5><span class="grow"></span>
-        ${p.tagsConfirmed ? '<button class="btn sm done" data-act="unconfirm-tags">Confirmed</button>' : `<button class="btn sm" id="btn-confirm-tags" data-act="confirm-tags" ${all ? '' : 'disabled'}>Confirm all</button>`}</div>
-      <div class="tags-sub">From the form fields and the SPOT figures. The PM confirms or corrects them. ${UI.tagBusy ? '<span class="spin"></span> Claude is checking the tags…' : from.mode === 'claude' ? `Checked by Claude (${esc(from.model)}).` : from.fallback ? 'Rule-based (Claude unavailable).' : 'Rule-based tagger.'}</div>
+      <div class="tags-top"><span class="badge red">New</span><h5>${head} · Takeda controlled vocabulary</h5><span class="grow"></span>
+        ${p.tagsConfirmed ? '<span class="btn sm done" aria-live="polite">✓ Confirmed</span>' : `<button class="btn sm" id="btn-confirm-tags" data-act="confirm-tags" ${UI.tagBusy ? 'disabled' : ''}>${n === 6 ? 'Confirm all' : n === 0 ? 'Confirm without tags' : `Confirm ${n} tag${n === 1 ? '' : 's'}`}</button>`}</div>
+      <div class="tags-sub">From the form fields and the SPOT figures. Tick a tag to use it, untick it to leave it out, or choose another value. ${UI.tagAsk ? '<span class="spin"></span> ' + (liveWriter() ? 'Claude is checking the tags…' : 'Suggesting…') : from.mode === 'claude' ? `Checked by Claude (${esc(from.model)}).` : from.fallback ? 'Rule-based (Claude unavailable).' : 'Rule-based tagger.'}</div>
+      ${p.textChanged ? `<div class="stale">The title, description or SPOT figures changed after these tags were suggested. <button class="btn xs" data-act="suggest-tags">Suggest the tags again</button></div>` : p.tagsStale && !p.tagsConfirmed ? '<div class="stale">The tags changed. Confirm them to update the reference brief.</div>' : ''}
+      ${!UI.tagBusy && n === 0 && !p.textChanged ? '<div class="stale">No tag could be suggested: the title and description do not say what the project does. Add details, or choose tags yourself.</div>' : ''}
       <div class="tags-grid">${SD.TAG_TYPES.map((t) => {
         const v = p.tags[t.key] || { value: '' };
+        const on = v.checked && v.value;
         const opts = SD.VOCAB[t.key];
-        return `<div class="tag" title="${esc(v.reason || ('from ' + (v.from || '')))}"><span class="tk">${t.label}</span>
-          <select data-tag="${t.key}" ${p.tagsConfirmed ? 'disabled' : ''}><option value="">choose…</option>${opts.map((o) => `<option ${o === v.value ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select>
-          <span class="from">${esc(v.from === 'Claude' ? 'Claude' : v.from || '')}</span>
-          <button class="box ${v.checked ? 'on' : ''}" data-act="tag-toggle" data-k="${t.key}" ${p.tagsConfirmed ? 'disabled' : ''} aria-label="confirm ${t.label}">${v.checked ? '✓' : ''}</button></div>`;
+        return `<div class="tag ${on ? '' : 'off'}" title="${esc(on ? (v.reason || ('from ' + (v.from || ''))) : 'Left out: not used in the search')}"><span class="tk">${t.label}</span>
+          <select data-tag="${t.key}" aria-label="${t.label}"><option value="">choose…</option>${opts.map((o) => `<option ${o === v.value ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select>
+          <span class="from">${on ? esc(v.from === 'Claude' ? 'Claude' : v.from || '') : 'left out'}</span>
+          <button class="box ${on ? 'on' : ''}" data-act="tag-toggle" data-k="${t.key}" aria-pressed="${on ? 'true' : 'false'}" aria-label="${on ? 'Leave out' : 'Use'} ${t.label}">${on ? '✓' : ''}</button></div>`;
       }).join('')}</div>
       ${p.tagsConfirmed && !p.panel.open && !S.guided ? `<div class="tags-foot">Smart Diary is ready. <button class="btn sm" data-act="panel-open" data-tab="compare">Find comparable projects ›</button></div>` : ''}
     </div>`;
@@ -526,6 +532,9 @@
   }
 
   function compareBody(p) {
+    if (p.tagsStale && p.compare && !UI.live) {
+      return `<div class="stale">The tags changed after this brief was made. Confirm the tags in the form to update it.</div>` + briefView(p);
+    }
     if (!p.tagsConfirmed) {
       return `<div class="sd-empty"><p>Compare starts from the six confirmed tags.</p><p class="small">Fill in the SPOT ID, run the SPOT lookup and confirm the tags in the form.</p></div>`;
     }
@@ -585,6 +594,10 @@
   }
   function briefView(p) {
     const b = p.compare.brief;
+    if (!b.refs.length) {
+      return `<div class="notfound-card" style="padding:1rem 1.1rem"><b>NOT FOUND</b><p style="margin:.4rem 0 0">${esc(b.notFound ? b.notFound.text : 'No past project passes the similarity floor.')}</p></div>
+        <div class="writer-line">No passage was sent to the model, so nothing was written. · <a data-act="toggle-pipe">See the six steps</a></div>`;
+    }
     const lessonCite = (ref, id) => { const s = ref.lesson && ref.lesson.sources.find((x) => x.id === id); return s ? s.cited : ''; };
     const refsHTML = b.refs.map((r) => {
       const used = p.used.includes(r.pid), nr = p.notRelevant.includes(r.pid);
@@ -609,7 +622,7 @@
 
   /* ---------- Ask ---------- */
   function askContext(p) {
-    const t = tagValues(p.tags);
+    const t = usedTags(p.tags);
     return [t.technology, t.utility, t.area].filter(Boolean).join(' · ');
   }
   function askBody(p) {
@@ -650,14 +663,14 @@
     }
     if (UI.drafting) return html + `<div class="entry"><span class="spin"></span> Drafting entry 1 from the SSC App form, the Review 1 outcome and the references used${liveWriter() ? ' · Claude' : ''}…</div>`;
     if (!e) return html + `<div class="sd-empty"><p>Draft entry 1 from what is already written.</p><button class="btn" data-act="draft">Draft diary entry 1</button></div>`;
-    const tags = tagValues(p.tags);
+    const tags = usedTags(p.tags);
     const typing = UI.typing && UI.typing.pid === p.id;
     const indexed = S.indexed.some((r) => r.id === p.id);
     return html + `<div class="entry">
       <div class="entry-top"><h5>DIARY ENTRY 1 · AFTER SSC REVIEW 1</h5><span class="grow"></span>
         ${e.status === 'confirmed' ? `<span class="badge dark">✓ Confirmed by PM · ${indexed ? 'indexed, searchable' : 'indexed tonight'}</span>` : '<span class="badge outline">Draft · not published</span>'}</div>
       ${UI.editing ? `<textarea id="entry-edit">${esc(e.text)}</textarea>` : `<p class="entry-text ${typing ? 'caret' : ''}" id="entry-text">${typing ? esc(e.text.slice(0, UI.typing.n)) : entryHTML(e.text)}</p>`}
-      <div class="tagchips">${SD.TAG_TYPES.map((t) => `<span>${esc(tags[t.key])}</span>`).join('')}</div>
+      <div class="tagchips">${SD.TAG_TYPES.filter((t) => tags[t.key]).map((t) => `<span>${esc(tags[t.key])}</span>`).join('')}</div>
       <div class="entry-meta"><span>Drafted from: ${esc((e.draftedFrom || []).map((x) => x.toLowerCase()).join(' · ') || 'SSC App form · Review 1 outcome · references used')}</span><span><b>${e.words}</b> / 150 words</span></div>
       ${e.deleted && e.deleted.length ? `<div class="deleted">Deleted without a source: ${e.deleted.map((d) => `<s>${esc(d)}</s>`).join(' · ')}</div>` : ''}
       <div class="writer-line"><span class="dot ${e.writer && e.writer.mode === 'claude' ? 'live' : ''}"></span>${writerText(e.writer)}${e.edited ? ' · edited by the PM' : ''}</div>
@@ -897,7 +910,10 @@
       return false;
     }
     UI.lookupErr = '';
+    const changed = p.spotFor !== id;
     p.spot = Object.assign({}, np.spot);
+    p.spotFor = id;
+    if (p.tags && changed) { p.textChanged = true; tagsChanged(p, true); }
     return true;
   }
   async function fillForm(p, a) {
@@ -920,32 +936,44 @@
     const form = { title: p.form.title, description: p.form.description, spot: p.spot || {} };
     const mark = (t) => { const o = {}; Object.keys(t).forEach((k) => (o[k] = Object.assign({}, t[k], { checked: false }))); return o; };
     p.tagsConfirmed = false;
+    p.textChanged = false;
+    if (p.compare) p.tagsStale = true;
     p.tags = mark(E.suggestTags(form));
     p.tagsFrom = { mode: 'offline', model: 'rule-based tagger' };
-    UI.tagBusy = liveWriter();
-    refresh('tags'); refresh('stephead');
+    refresh('stephead');
+    UI.tagBusy = true; UI.tagAsk = liveWriter();
+    refresh('tags');
     const res = await genTags(form);
-    UI.tagBusy = false;
+    UI.tagAsk = false;
     p.tags = mark(res.tags);
     p.tagsFrom = res.writer;
     refresh('tags');
+    // Tick one by one in presenter mode; Confirm stays disabled until all are ticked.
     for (const t of SD.TAG_TYPES) {
       if (a) await sleep(280);
-      if (p.tags[t.key].value) p.tags[t.key].checked = true;
+      if (p.tags[t.key] && p.tags[t.key].value) p.tags[t.key].checked = true;
       if (a) refresh('tags');
     }
+    UI.tagBusy = false;
     refresh('tags');
     save();
   }
   async function confirmTags(p, a) {
     if (a) { await sleep(500); flash('#btn-confirm-tags'); await sleep(350); }
-    SD.TAG_TYPES.forEach((t) => { if (p.tags[t.key]) p.tags[t.key].checked = true; });
     p.tagsConfirmed = true;
-    addLog('Tags confirmed', SD.TAG_TYPES.map((t) => p.tags[t.key].value).join(' · '));
+    const kept = usedTags(p.tags);
+    const out = SD.TAG_TYPES.filter((t) => !kept[t.key]).map((t) => t.label.toLowerCase());
+    addLog('Tags confirmed', SD.TAG_TYPES.map((t) => kept[t.key]).filter(Boolean).join(' · ') + (out.length ? ' · left out: ' + out.join(', ') : ''));
     refresh('tags'); refresh('stephead');
   }
+  function tagsChanged(p, quiet) {
+    if (p.tagsConfirmed) { p.tagsConfirmed = false; p.tagsStale = !!p.compare; }
+    else if (p.compare) p.tagsStale = true;
+    if (quiet) return;
+    refresh('tags'); refresh('stephead'); refresh('panel'); save();
+  }
   function queryOf(p) {
-    return { projectId: p.id, title: p.form.title, description: p.form.description, tags: tagValues(p.tags), spot: p.spot ? { co2: p.spot.co2, capex: p.spot.capex, area: p.spot.area } : {} };
+    return { projectId: p.id, title: p.form.title, description: p.form.description, tags: usedTags(p.tags), spot: p.spot ? { co2: p.spot.co2, capex: p.spot.capex, area: p.spot.area } : {} };
   }
   let timerI = null;
   function openPanel(p, tab) {
@@ -958,7 +986,7 @@
     if (!p.tagsConfirmed) { toast('Confirm the six tags first.'); return; }
     const q = queryOf(p);
     openPanel(p, 'compare');
-    p.compare = null; p.used = []; p.notRelevant = [];
+    p.compare = null; p.used = []; p.notRelevant = []; p.tagsStale = false;
     const R = E.retrieveBrief(index(), q);
     const gen = genBrief(q);
     UI.live = { step: 0, R, t0: Date.now(), res: null };
@@ -1080,7 +1108,7 @@
   }
   function indexTonight(p) {
     if (!p.entry || p.entry.status !== 'confirmed') return false;
-    const rec = E.recordFromDiary({ id: p.id, title: p.form.title, meeting: p.form.meeting, co2: p.spot ? p.spot.co2 : 0, contact: p.form.contact, tags: tagValues(p.tags), decision: p.decision, entryText: p.entry.text });
+    const rec = E.recordFromDiary({ id: p.id, title: p.form.title, meeting: p.form.meeting, co2: p.spot ? p.spot.co2 : 0, contact: p.form.contact, tags: usedTags(p.tags), decision: p.decision, entryText: p.entry.text });
     S.indexed = S.indexed.filter((r) => r.id !== p.id).concat([rec]);
     addLog('Overnight index', `Diary entry 1 of ${p.id} added · ${index().projects.length} projects`);
     save();
@@ -1145,7 +1173,7 @@
     () => true,
     () => !!(proj(DEMO).spot && proj(DEMO).form.title && proj(DEMO).form.stars),
     () => proj(DEMO).tagsConfirmed,
-    () => !!proj(DEMO).compare,
+    () => !!proj(DEMO).compare && !proj(DEMO).tagsStale,
     () => proj(DEMO).used.length > 0,
     () => proj(DEMO).asks.some((x) => x.answer),
     () => !!proj(DEMO).decision || !!(UI.modal === 'decision' && UI.dec && UI.dec.option),
@@ -1167,11 +1195,12 @@
     },
     async (a) => {
       const p = proj(DEMO); S.view = 'work'; p.panel.open = false; UI.modal = null; render();
-      if (!p.tagsConfirmed) { await sleep(a ? 400 : 0); await suggestTags(p, a); await confirmTags(p, a); }
+      if (!p.tags || p.textChanged) { await sleep(a ? 400 : 0); await suggestTags(p, a); }
+      if (!p.tagsConfirmed) await confirmTags(p, a);
     },
     async (a) => {
       const p = proj(DEMO); S.view = 'work'; UI.modal = null;
-      if (!p.compare) await runCompare(p, a, true);
+      if (!p.compare || p.tagsStale) await runCompare(p, a, true);
       else { openPanel(p, 'compare'); UI.showPipe = true; render(); }
     },
     async (a) => {
@@ -1336,10 +1365,21 @@
       inp.onchange = () => { const f = inp.files && inp.files[0]; if (f) { const p = proj(); p.form.attachments.push(f.name); render(); save(); toast('Attached ' + f.name + ' (demo: only the name is kept)'); } };
       inp.click();
     },
-    'suggest-tags': () => suggestTags(proj(), true),
-    'tag-toggle': (d) => { const p = proj(); const t = p.tags[d.k]; if (t && t.value) { t.checked = !t.checked; refresh('tags'); save(); } },
-    'confirm-tags': () => confirmTags(proj(), false).then(() => { if (!S.guided) { const p = proj(); openPanel(p, 'compare'); render(); runCompare(p, true); } }),
-    'unconfirm-tags': () => { const p = proj(); if (S.guided) return; p.tagsConfirmed = false; refresh('tags'); save(); },
+    'suggest-tags': () => { if (!UI.tagBusy) suggestTags(proj(), false); },
+    'tag-toggle': (d) => {
+      const p = proj(); const t = p.tags && p.tags[d.k];
+      if (!t || UI.tagBusy) return;
+      if (!t.value) { toast('Choose a value first, then tick the tag.'); return; }
+      t.checked = !t.checked;
+      tagsChanged(p);
+    },
+    'confirm-tags': () => {
+      const p = proj();
+      confirmTags(p, false).then(() => {
+        if (p.tagsStale || (!p.compare && !S.guided)) { openPanel(p, 'compare'); render(); runCompare(p, true); }
+        else render();
+      });
+    },
     'panel-open': (d) => { const p = proj(); openPanel(p, d.tab || p.panel.tab); render(); if (p.panel.tab === 'compare' && !p.compare && p.tagsConfirmed && !UI.live) runCompare(p, true); },
     'panel-close': () => { const p = proj(); p.panel.open = false; UI.showPipe = false; render(); save(); },
     tab: (d) => {
@@ -1424,15 +1464,22 @@
     if (t.dataset && t.dataset.tag) {
       const p = proj();
       p.tags[t.dataset.tag] = { value: t.value, from: 'PM', checked: !!t.value };
-      refresh('tags'); save();
+      tagsChanged(p);
       return;
     }
     const b = t.dataset && t.dataset.bind;
     if (!b) return;
     if (b.startsWith('rec.')) { setPath(UI, b, t.value); render(); return; }
-    setPath(proj(), b, t.value);
+    const pj = proj();
+    setPath(pj, b, t.value);
     if (b === 'form.contact') render();
-    if (b === 'form.title' && !proj().tags) refresh('tags');
+    if (b === 'form.title' && !pj.tags) refresh('tags');
+    if ((b === 'form.title' || b === 'form.description') && pj.tags) { pj.textChanged = true; tagsChanged(pj); }
+    if (b === 'form.spotId' && pj.spot && String(t.value).trim() !== pj.spotFor) {
+      pj.spot = null; UI.lookupErr = 'The SPOT ID changed: run the SPOT data lookup again.';
+      if (pj.tags) { pj.textChanged = true; tagsChanged(pj, true); }
+      render();
+    }
     save();
   });
   document.addEventListener('keydown', (e) => {

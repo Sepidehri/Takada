@@ -44,7 +44,7 @@ Smart Diary adds three functions to the steps that already exist. No new meeting
 | **Ask** | Deepening and Review 2 | Answers questions in plain language, in English or German, **only from Takeda's records**, each sentence with its source. Counts come from SPOT, not from the language model. |
 | **Write** | Four existing gates | Drafts a short diary entry from what is already written (form, decision, references). Nothing is published until the project manager confirms it. Confirmed entries are indexed overnight, so **step 6 feeds step 1** of the next project. |
 
-The only new thing the project manager does is confirm six suggested tags from a controlled vocabulary (technology, utility, scope, area, equipment, CAPEX), which takes about 30 seconds.
+The only new thing the project manager does is confirm six suggested tags from a controlled vocabulary (technology, utility, scope, area, equipment, CAPEX), which takes about 30 seconds. A ticked tag is used in the search; an unticked tag is left out, and the PM can pick another value. Tags are never guessed: when the form says nothing about a tag type, it stays empty, and a project that says nothing at all ("test") gets *Not enough information to compare* instead of matches.
 
 ## See it
 
@@ -215,7 +215,7 @@ npm run build
 npm test
 ```
 
-The 19 tests check, among other things, that:
+The 21 tests check, among other things, that:
 
 - the six tags for the worked example come out right, and all come from the vocabulary;
 - retrieval for the worked example gives 142 → 19 → 60 → 5 → 3, with the expected three references;
@@ -223,7 +223,8 @@ The 19 tests check, among other things, that:
 - the requalification question is answered from a SPOT query, with two sources;
 - questions without precedent ("Did any project use hydrogen?") return "not found";
 - the Gate B demo set reaches at least 70 % relevant answers and 90 % correct "not found";
-- a confirmed diary entry is found by the next project (the loop).
+- a confirmed diary entry is found by the next project (the loop);
+- tags the PM leaves out are not used, and a project with no information ("test") gets no tags and an honest "not found".
 
 The app's **PILOT** page runs the same Gate B demo set in the browser and shows the results.
 

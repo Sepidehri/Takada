@@ -329,7 +329,7 @@
     } else {
       out.utility = { value: d.utility || '', from: d.utility ? 'technology' : 'choose' };
     }
-    out.scope = { value: d.scope || 'Scope 1', from: 'technology' };
+    out.scope = d.scope ? { value: d.scope, from: 'technology' } : { value: '', from: 'choose' };
     var area = '';
     if (spot.area) {
       var a = norm(spot.area);
@@ -347,7 +347,7 @@
   E.tagPrompt = function (form) {
     var props = {};
     SD.TAG_TYPES.forEach(function (tt) {
-      props[tt.key] = { type: 'string', enum: SD.VOCAB[tt.key] };
+      props[tt.key] = { type: 'string', enum: [''].concat(SD.VOCAB[tt.key]) };
     });
     props.reasons = {
       type: 'object', additionalProperties: false,
@@ -356,7 +356,8 @@
     };
     return {
       system: 'You tag sustainability projects for the Sustainability Steering Committee (SSC) of a pharmaceutical site. ' +
-        'Choose exactly one value per tag type from the controlled vocabulary. Base every choice only on the project form and the SPOT figures given. ' +
+        'Choose one value per tag type from the controlled vocabulary. Base every choice only on the project form and the SPOT figures given. ' +
+        'If they give no evidence for a tag type, answer with an empty string for it: never guess. ' +
         'Utility for heat recovery is written as "heat source → heat sink". Scope: heat that replaces gas heating is Scope 1; electricity savings are Scope 2. ' +
         'For each reason, write at most 12 words that quote the field you used.',
       user: 'Project form:\nTitle: ' + (form.title || '') + '\nDescription: ' + (form.description || '') +
@@ -368,9 +369,15 @@
     var out = {};
     SD.TAG_TYPES.forEach(function (tt) {
       var v = json && json[tt.key];
-      if (SD.VOCAB[tt.key].indexOf(v) >= 0) out[tt.key] = { value: v, from: 'Claude', reason: (json.reasons || {})[tt.key] || '' };
+      if (v === '' || v == null) out[tt.key] = { value: '', from: 'choose', reason: '' };
+      else if (SD.VOCAB[tt.key].indexOf(v) >= 0) out[tt.key] = { value: v, from: 'Claude', reason: (json.reasons || {})[tt.key] || '' };
     });
     return Object.keys(out).length === 6 ? out : null;
+  };
+
+  /* Does the form say anything Smart Diary can search for? "test" does not. */
+  E.hasSubstance = function (text) {
+    return !!detectTech(text) || Object.keys(concepts(text)).length > 0;
   };
 
   /* ================================================================== */
@@ -401,6 +408,17 @@
     var t0 = Date.now();
     var tags = query.tags || {};
     var qText = [query.title, query.description].join('. ');
+    var anyTag = SD.TAG_TYPES.some(function (t) { return tags[t.key]; });
+    if (!anyTag && !E.hasSubstance(qText)) {
+      return {
+        projectId: query.projectId,
+        query: { title: query.title, tags: tags, spot: query.spot || {}, terms: tokens(qText).slice(0, 40), concepts: [] },
+        steps: { filter: { total: idx.projects.filter(function (r) { return r.id !== query.projectId; }).length, candidates: [], widened: false }, search: { matched: 0, top: [] }, rerank: { k: E.PARAMS.rerankK, floor: E.PARAMS.floor, scored: [] } },
+        refs: [],
+        notFound: { kind: 'nodata', text: 'Not enough information to compare. The title and description name no technology, utility or equipment, and no tag is ticked. Smart Diary shows nothing rather than a guess.' },
+        ms: Date.now() - t0
+      };
+    }
     var qTerms = tokens(qText);
     var qCon = concepts(qText);
     var pool = idx.projects.filter(function (r) { return r.id !== query.projectId; });
@@ -453,7 +471,7 @@
     var est = query.spot && query.spot.co2 ? query.spot.co2 + ' t' : 'the estimate';
     if (!shown.length) {
       notFound = { kind: 'none', text: 'No past project passes the similarity floor. Smart Diary shows nothing rather than a weak match. Treat ' + est + ' as unverified.' };
-    } else if (!closedSame.length) {
+    } else if (tags.utility && !closedSame.length) {
       var open = sameUtil.filter(function (r) { return r.achieved == null; })[0];
       notFound = {
         kind: 'combo',
@@ -1120,7 +1138,7 @@
   E.tagPromptText = function (form) {
     var p = E.tagPrompt(form);
     return p.system + '\n\n' + p.user +
-      '\n\nReply with only a JSON object with the keys technology, utility, scope, area, equipment and capex, each exactly one value from its list below, ' +
+      '\n\nReply with only a JSON object with the keys technology, utility, scope, area, equipment and capex, each one value from its list below, or an empty string when the form gives no evidence for it (never guess), ' +
       'and reasons: an object with the keys technology, utility and equipment, each at most 12 words.\n' +
       SD.TAG_TYPES.map(function (t) { return t.key + ': ' + SD.VOCAB[t.key].join(' | '); }).join('\n');
   };

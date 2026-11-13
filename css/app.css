@@ -181,6 +181,11 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
 .tag select { border: 0; background: transparent; font-size: 0.84rem; flex: 1; min-width: 0; padding: 0.1rem 0; appearance: none; -webkit-appearance: none; cursor: pointer; text-overflow: ellipsis; }
 .tag select:focus { outline: none; }
 .tag .from { font-size: 0.6rem; color: var(--faint); white-space: nowrap; }
+.tag.off { background: var(--soft); border-style: dashed; }
+.tag.off select { color: var(--faint); text-decoration: line-through; }
+.tag.off .from { color: var(--red); }
+.box:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.stale { background: #fff6e0; border: 1px solid #f0d28a; color: #6b4a00; padding: 0.45rem 0.65rem; font-size: 0.8rem; margin: 0 0 0.6rem; }
 .box { width: 1.15rem; height: 1.15rem; flex: none; border: 1.5px solid var(--red); background: #fff; display: inline-grid; place-items: center; color: #fff; font-size: 0.72rem; cursor: pointer; padding: 0; }
 .box.on { background: var(--red); }
 .box.dark.on { background: var(--char); border-color: var(--char); }

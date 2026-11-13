@@ -44,6 +44,7 @@ Switch to the browser and click **Concept demo**.
 **3 · Six tags** (→)
 - You see: the red strip with six tags; they tick one by one and are confirmed. A dark box says *Why tags matter*.
 - Say: *"This strip is the only new element. Smart Diary suggests six tags from Takeda's controlled vocabulary, and the project manager confirms them with one click. Tags let a small archive be searched by technology, utility and equipment, not by word overlap."*
+- You can show the correction live: untick a tag (it turns grey, *left out*) or pick another value, then press →. The search runs without the tag you left out. If you change a tag after the brief exists, the brief is marked as outdated until you confirm again.
 
 **4 · Search** (→)
 - You see: the Smart Diary panel slides in. Six steps tick: 142 projects → 19 candidates → 60 passages → 5 scored → 3 shown, 2 too weak.
@@ -95,6 +96,7 @@ Switch to the browser and click **Concept demo**.
 | "What if nothing fits?" | Ask tab: `Did any project use hydrogen?` → **NOT FOUND**. |
 | "Our documents are partly German." | Ask tab: `Abwärmenutzung der Druckluftkompressoren`. |
 | "Does it only work for heat recovery?" | Main page → open **10xx151 LED retrofit**: it finds LED projects. |
+| "What if the project says nothing?" | **+ New SSC project**, title `test` → *Suggest six tags* finds none → *Confirm without tags* → **Not enough information to compare**. It shows nothing rather than a guess. |
 | "How do you know it is good?" | **PILOT** → *Run the Gate B demo check*. |
 | "Who saw what?" | **RECORDS** → *Audit log*. |
 

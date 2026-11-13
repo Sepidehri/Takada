@@ -176,7 +176,7 @@ test('LED project finds LED references, not heat recovery', () => {
 test('Claude tag prompt and validation stay inside the vocabulary', () => {
   const np = SD.NEW_PROJECTS['10xxxxx'];
   const p = E.tagPrompt({ title: np.title, description: np.description, spot: np.spot });
-  assert.deepEqual(p.schema.properties.technology.enum, SD.VOCAB.technology);
+  assert.deepEqual(p.schema.properties.technology.enum, [''].concat(SD.VOCAB.technology));
   assert.equal(E.validateTags({ technology: 'nuclear', utility: 'x' }), null);
   const ok = E.validateTags({ technology: 'heat recovery', utility: 'process cooling → HVAC heating', scope: 'Scope 1', area: 'utilities building', equipment: 'heat exchanger', capex: '€250–500k', reasons: {} });
   assert.equal(ok.technology.from, 'Claude');
@@ -229,4 +229,28 @@ test('tag prompt text lists the vocabulary', () => {
   const t = E.tagPromptText({ title: np.title, description: np.description, spot: np.spot });
   assert.match(t, /technology: heat recovery \| heat pump/);
   assert.match(t, /Reply with only a JSON object/);
+});
+
+test('tags the PM leaves out are not used in the search', () => {
+  const idx = E.buildIndex();
+  const q = queryFor('10xxxxx');
+  delete q.tags.area; delete q.tags.capex;
+  const R = E.retrieveBrief(idx, q);
+  assert.equal(R.refs[0].pid, '10xxxx1');
+  assert.ok(!('area' in R.query.tags));
+  const q2 = queryFor('10xxxxx'); delete q2.tags.utility;
+  const R2 = E.retrieveBrief(idx, q2);
+  assert.ok(!R2.notFound || R2.notFound.kind === 'none', 'no claim about a utility the PM left out');
+});
+
+test('a project that says nothing ("test") gets no tags and an honest not-found', async () => {
+  const t = E.suggestTags({ title: 'test', description: 'test', spot: {} });
+  SD.TAG_TYPES.forEach((tt) => assert.equal(t[tt.key].value, '', tt.key));
+  const idx = E.buildIndex();
+  const out = await E.rag.brief(idx, { projectId: 'draft-1', title: 'test', description: 'test', tags: {}, spot: {} }, async () => { throw new Error('the model must not be called'); });
+  assert.equal(out.brief.refs.length, 0);
+  assert.equal(out.brief.notFound.kind, 'nodata');
+  assert.equal(out.writer.mode, 'none');
+  const v = E.validateTags({ technology: '', utility: '', scope: '', area: '', equipment: '', capex: '', reasons: {} });
+  assert.ok(v && v.technology.value === '');
 });
