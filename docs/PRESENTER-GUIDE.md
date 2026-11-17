@@ -96,6 +96,7 @@ Switch to the browser and click **Concept demo**.
 | "What if nothing fits?" | Ask tab: `Did any project use hydrogen?` → **NOT FOUND**. |
 | "Our documents are partly German." | Ask tab: `Abwärmenutzung der Druckluftkompressoren`. |
 | "Does it only work for heat recovery?" | Main page → open **10xx151 LED retrofit**: it finds LED projects. |
+| "Can I enter my own project?" | **+ New SSC project**, any SPOT ID, *SPOT data lookup*. If the ID is not in the demo data, enter CO₂, CAPEX and area yourself (marked as PM input), then title and description, *Suggest six tags*, *Confirm*. |
 | "What if the project says nothing?" | **+ New SSC project**, title `test` → *Suggest six tags* finds none → *Confirm without tags* → **Not enough information to compare**. It shows nothing rather than a guess. |
 | "How do you know it is good?" | **PILOT** → *Run the Gate B demo check*. |
 | "Who saw what?" | **RECORDS** → *Audit log*. |

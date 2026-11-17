@@ -335,10 +335,11 @@
       var a = norm(spot.area);
       area = SD.VOCAB.area.filter(function (v) { return norm(v) === a; })[0] || firstCue(' ' + a + ' ', AREA_CUES) || '';
     }
-    out.area = area ? { value: area, from: 'SPOT' } : { value: firstCue(t, AREA_CUES) || '', from: 'description' };
+    var spotFrom = spot.manual ? 'PM input' : 'SPOT';
+    out.area = area ? { value: area, from: spotFrom } : { value: firstCue(t, AREA_CUES) || '', from: 'description' };
     var eq = firstCue(t, EQUIP_CUES) || d.equipment || '';
     out.equipment = { value: eq, from: firstCue(t, EQUIP_CUES) ? 'description' : 'technology' };
-    out.capex = { value: spot.capex || '', from: spot.capex ? 'SPOT' : 'choose' };
+    out.capex = { value: spot.capex || '', from: spot.capex ? spotFrom : 'choose' };
     return out;
   };
 

@@ -1425,10 +1425,11 @@ mark { background: #ffe8a3; padding: 0 0.1rem; }
       var a = norm(spot.area);
       area = SD.VOCAB.area.filter(function (v) { return norm(v) === a; })[0] || firstCue(' ' + a + ' ', AREA_CUES) || '';
     }
-    out.area = area ? { value: area, from: 'SPOT' } : { value: firstCue(t, AREA_CUES) || '', from: 'description' };
+    var spotFrom = spot.manual ? 'PM input' : 'SPOT';
+    out.area = area ? { value: area, from: spotFrom } : { value: firstCue(t, AREA_CUES) || '', from: 'description' };
     var eq = firstCue(t, EQUIP_CUES) || d.equipment || '';
     out.equipment = { value: eq, from: firstCue(t, EQUIP_CUES) ? 'description' : 'technology' };
-    out.capex = { value: spot.capex || '', from: spot.capex ? 'SPOT' : 'choose' };
+    out.capex = { value: spot.capex || '', from: spot.capex ? spotFrom : 'choose' };
     return out;
   };
 
@@ -2506,7 +2507,7 @@ mark { background: #ffe8a3; padding: 0 0.1rem; }
     return p.tags && !p.tagsConfirmed ? 'tags' : 'input';
   }
   function sceneInfo(p) {
-    if (S.guided) return SD.SCENES[S.guided.scene];
+    if (S.guided && p.id === DEMO) return SD.SCENES[S.guided.scene];
     const st = currentStage(p);
     return SD.SCENES.find((s) => s.id === st);
   }
@@ -2738,13 +2739,19 @@ mark { background: #ffe8a3; padding: 0 0.1rem; }
         <div class="field"><label>How sustainable do you rate your project?</label><div class="stars" id="stars">${[1, 2, 3, 4, 5].map((n) => `<button data-act="star" data-n="${n}" aria-label="${n} stars">${n <= f.stars ? '★' : '☆'}</button>`).join('')}</div></div>
         <div class="field"><label><span class="req">*</span>Attachments</label><div class="attach">${f.attachments.map((a) => `<span class="file-chip"><i></i>${esc(a)}</span>`).join('')}<a data-act="attach">+ Attach file</a></div></div>
         <div>
-          <div class="redbar">Potential reductions – from SPOT</div>
+          ${p.spot && p.spot.manual ? `<div class="redbar">Potential reductions – entered by the PM</div>
+          <div class="trip" style="margin-top:.55rem">
+            <div class="field"><label>CO₂ reduction (t CO₂e / year)</label><input id="f-co2" type="number" min="0" step="1" inputmode="numeric" data-bind="spot.co2" value="${esc(p.spot.co2)}" placeholder="e.g. 120"></div>
+            <div class="field"><label>CAPEX</label><select id="f-capex" data-bind="spot.capex"><option value="">Select…</option>${SD.VOCAB.capex.map((o) => `<option ${o === p.spot.capex ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select></div>
+            <div class="field"><label>Area</label><select id="f-area" data-bind="spot.area"><option value="">Select…</option>${SD.VOCAB.area.map((o) => `<option ${o === p.spot.area ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select></div>
+          </div>
+          <div class="small" style="margin-top:.3rem">SPOT ${esc(p.spotFor)} is not in this demo's SPOT data (it holds ${Object.keys(SD.NEW_PROJECTS).join(', ')}). Enter the figures here: they count as the PM's input, not verified in SPOT.</div>` : `<div class="redbar">Potential reductions – from SPOT</div>
           <div class="trip" style="margin-top:.55rem">
             <div class="field"><label>CO₂ reduction in SPOT</label><input readonly value="${p.spot ? esc(p.spot.co2 + ' t CO₂e / year') : ''}"></div>
             <div class="field"><label>CAPEX</label><input readonly value="${p.spot ? esc(p.spot.capex) : ''}"></div>
             <div class="field"><label>Area</label><input readonly value="${p.spot ? esc(p.spot.area) : ''}"></div>
           </div>
-          ${p.spot ? `<div class="small" style="margin-top:.3rem">SPOT baseline: ${esc(p.spot.energy)} · the CO₂ figure is the PM’s estimate</div>` : ''}
+          ${p.spot ? `<div class="small" style="margin-top:.3rem">SPOT baseline: ${esc(p.spot.energy)} · the CO₂ figure is the PM’s estimate</div>` : '<div class="small" style="margin-top:.3rem">Enter a SPOT ID and run the lookup. Any ID works: if it is not in the demo data, you enter the figures yourself.</div>'}`}
         </div>
         ${citedBox()}
       </div>
@@ -3186,8 +3193,14 @@ mark { background: #ffe8a3; padding: 0 0.1rem; }
     const id = String(p.form.spotId || '').trim();
     const np = Object.values(SD.NEW_PROJECTS).find((x) => x.spotId === id);
     if (!np) {
-      UI.lookupErr = id ? `No SPOT record for “${id}”. Demo IDs: ${Object.keys(SD.NEW_PROJECTS).join(', ')}.` : 'Enter a SPOT ID first.';
-      return false;
+      if (!id) { UI.lookupErr = 'Enter a SPOT ID first.'; return false; }
+      // Not in this demo's SPOT data: the PM enters the figures, marked as PM input.
+      UI.lookupErr = '';
+      const changedManual = p.spotFor !== id;
+      if (changedManual || !p.spot) p.spot = { co2: '', capex: '', area: '', energy: '', manual: true };
+      p.spotFor = id;
+      if (p.tags && changedManual) { p.textChanged = true; tagsChanged(p, true); }
+      return true;
     }
     UI.lookupErr = '';
     const changed = p.spotFor !== id;
@@ -3623,8 +3636,8 @@ mark { background: #ffe8a3; padding: 0 0.1rem; }
       catch (e) { UI.warm = e && e.code === 'not_granted' ? 'Not allowed: the demo will use the offline writer.' : 'Claude did not answer (' + ((e && e.code) || 'error') + '). The demo will use the offline writer if this persists.'; }
       refresh('overlay');
     },
-    'open-project': (d) => { S.pid = d.pid; proj(d.pid); S.view = 'work'; UI.lookupErr = ''; render(); save(); },
-    'new-project': () => { S.drafts = (S.drafts || 0) + 1; const id = 'draft-' + S.drafts; S.projects[id] = newProject(id); S.pid = id; S.view = 'work'; render(); save(); },
+    'open-project': (d) => { if (d.pid !== DEMO) S.guided = null; S.pid = d.pid; proj(d.pid); S.view = 'work'; UI.lookupErr = ''; UI.callout = null; render(); save(); },
+    'new-project': () => { S.guided = null; UI.callout = null; UI.lookupErr = ''; S.drafts = (S.drafts || 0) + 1; const id = 'draft-' + S.drafts; S.projects[id] = newProject(id); S.pid = id; S.view = 'work'; render(); save(); },
     'hero-search': () => {
       const q = ($('#hero-q') || {}).value || UI.heroQ;
       UI.heroQ = q;
@@ -3635,7 +3648,7 @@ mark { background: #ffe8a3; padding: 0 0.1rem; }
       render();
     },
     'home-clear': () => { UI.homeRes = null; render(); },
-    'home-new-from-search': () => { S.drafts = (S.drafts || 0) + 1; const id = 'draft-' + S.drafts; const p = (S.projects[id] = newProject(id)); p.form.title = UI.heroQ; S.pid = id; S.view = 'work'; UI.homeRes = null; render(); save(); },
+    'home-new-from-search': () => { S.guided = null; UI.lookupErr = ''; S.drafts = (S.drafts || 0) + 1; const id = 'draft-' + S.drafts; const p = (S.projects[id] = newProject(id)); p.form.title = UI.heroQ; S.pid = id; S.view = 'work'; UI.homeRes = null; render(); save(); },
     'fill-example': () => { const p = proj(); fillForm(p, false); save(); },
     lookup: () => { const p = proj(); p.form.spotId = ($('#f-spot') || {}).value || p.form.spotId; if (doLookup(p)) { const np = Object.values(SD.NEW_PROJECTS).find((x) => x.spotId === p.form.spotId.trim()); if (np && !p.form.title && !String(p.id).startsWith('10')) p.form.title = np.title; } render(); save(); },
     star: (d) => { const p = proj(); p.form.stars = Number(d.n); render(); save(); },
@@ -3754,7 +3767,7 @@ mark { background: #ffe8a3; padding: 0 0.1rem; }
     setPath(pj, b, t.value);
     if (b === 'form.contact') render();
     if (b === 'form.title' && !pj.tags) refresh('tags');
-    if ((b === 'form.title' || b === 'form.description') && pj.tags) { pj.textChanged = true; tagsChanged(pj); }
+    if ((b === 'form.title' || b === 'form.description' || b.startsWith('spot.')) && pj.tags) { pj.textChanged = true; tagsChanged(pj); }
     if (b === 'form.spotId' && pj.spot && String(t.value).trim() !== pj.spotFor) {
       pj.spot = null; UI.lookupErr = 'The SPOT ID changed: run the SPOT data lookup again.';
       if (pj.tags) { pj.textChanged = true; tagsChanged(pj, true); }
