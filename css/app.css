@@ -139,7 +139,14 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
 .card { flex: 1; min-height: 0; background: #fff; box-shadow: var(--shadow); display: flex; flex-direction: column; max-width: 1600px; margin: 0 auto; width: 100%; }
 .card-head { display: flex; align-items: center; gap: 0.6rem; padding: 0.75rem 1rem 0.6rem; position: relative; }
 .card-head::after { content: ''; position: absolute; left: 1rem; right: 1rem; bottom: 0; height: 2px; background: var(--red); }
+.card-head { flex-wrap: wrap; row-gap: 0.4rem; }
 .card-head h2 { margin: 0; color: var(--red); font-size: 1.22rem; font-weight: 700; }
+.card-head .badge { margin-left: 0.4rem; }
+.card-icons { display: inline-flex; gap: 0.2rem; }
+.iconbtn { border: 0; background: none; color: var(--ink-2); font-size: 0.95rem; line-height: 1; padding: 0.1rem 0.35rem; border-radius: 2px; }
+.iconbtn:hover { background: var(--line-2); color: var(--red); }
+.field.invalid input, .field.invalid select, .field.invalid textarea { border-color: var(--red); background: var(--red-50); }
+.field.invalid .attach a { font-weight: 700; }
 .card-head .ver { color: var(--muted); font-size: 0.72rem; margin-left: 0.4rem; }
 .card-info { display: flex; justify-content: space-between; padding: 0.4rem 1rem; background: var(--soft); color: var(--ink-2); font-size: 0.76rem; margin-top: 0.1rem; }
 .card-main { position: relative; flex: 1; min-height: 0; overflow: hidden; }
@@ -182,6 +189,9 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
 .tag select:focus { outline: none; }
 .tag .from { font-size: 0.6rem; color: var(--faint); white-space: nowrap; }
 .tag.off { background: var(--soft); border-style: dashed; }
+.tag.empty { border-style: dashed; }
+.tag.empty select { color: var(--faint); }
+.warnicon { display: inline-grid; place-items: center; width: 1.15rem; height: 1.15rem; flex: none; background: #f0b429; color: var(--char); font-weight: 800; font-size: 0.75rem; border-radius: 50%; }
 .tag.off select { color: var(--faint); text-decoration: line-through; }
 .tag.off .from { color: var(--red); }
 .box:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }

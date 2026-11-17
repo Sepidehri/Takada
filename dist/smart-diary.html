@@ -150,7 +150,14 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
 .card { flex: 1; min-height: 0; background: #fff; box-shadow: var(--shadow); display: flex; flex-direction: column; max-width: 1600px; margin: 0 auto; width: 100%; }
 .card-head { display: flex; align-items: center; gap: 0.6rem; padding: 0.75rem 1rem 0.6rem; position: relative; }
 .card-head::after { content: ''; position: absolute; left: 1rem; right: 1rem; bottom: 0; height: 2px; background: var(--red); }
+.card-head { flex-wrap: wrap; row-gap: 0.4rem; }
 .card-head h2 { margin: 0; color: var(--red); font-size: 1.22rem; font-weight: 700; }
+.card-head .badge { margin-left: 0.4rem; }
+.card-icons { display: inline-flex; gap: 0.2rem; }
+.iconbtn { border: 0; background: none; color: var(--ink-2); font-size: 0.95rem; line-height: 1; padding: 0.1rem 0.35rem; border-radius: 2px; }
+.iconbtn:hover { background: var(--line-2); color: var(--red); }
+.field.invalid input, .field.invalid select, .field.invalid textarea { border-color: var(--red); background: var(--red-50); }
+.field.invalid .attach a { font-weight: 700; }
 .card-head .ver { color: var(--muted); font-size: 0.72rem; margin-left: 0.4rem; }
 .card-info { display: flex; justify-content: space-between; padding: 0.4rem 1rem; background: var(--soft); color: var(--ink-2); font-size: 0.76rem; margin-top: 0.1rem; }
 .card-main { position: relative; flex: 1; min-height: 0; overflow: hidden; }
@@ -193,6 +200,9 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
 .tag select:focus { outline: none; }
 .tag .from { font-size: 0.6rem; color: var(--faint); white-space: nowrap; }
 .tag.off { background: var(--soft); border-style: dashed; }
+.tag.empty { border-style: dashed; }
+.tag.empty select { color: var(--faint); }
+.warnicon { display: inline-grid; place-items: center; width: 1.15rem; height: 1.15rem; flex: none; background: #f0b429; color: var(--char); font-weight: 800; font-size: 0.75rem; border-radius: 50%; }
 .tag.off select { color: var(--faint); text-decoration: line-through; }
 .tag.off .from { color: var(--red); }
 .box:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
@@ -2459,10 +2469,10 @@ mark { background: #ffe8a3; padding: 0 0.1rem; }
     el.classList.remove('pulse'); void el.offsetWidth; el.classList.add('pulse');
   }
   let toastT = null;
-  function toast(msg) {
+  function toast(msg, kind) {
     const t = $('#toast');
     if (!t) return;
-    t.innerHTML = `<div class="toast"><span class="box on">✓</span>${esc(msg)}</div>`;
+    t.innerHTML = `<div class="toast" role="status">${kind === 'warn' ? '<span class="warnicon">!</span>' : '<span class="box on">✓</span>'}${esc(msg)}</div>`;
     clearTimeout(toastT);
     toastT = setTimeout(() => { t.innerHTML = ''; }, 3400);
   }
@@ -2588,6 +2598,7 @@ mark { background: #ffe8a3; padding: 0 0.1rem; }
   function refresh(part) {
     const map = {
       foot: ['#foot', foot], panel: ['#sdpanel', panel], tags: ['#tags', tagsStrip], stephead: ['#stephead', stephead],
+      cardhead: ['#cardhead', () => cardHead(proj())],
       overlay: ['#overlay', () => `<div id="overlay">${overlay(!!document.querySelector('#overlay .scrim'))}</div>`], presenter: ['#presenter', presenter], cited: ['#cited', citedBox]
     };
     const m = map[part];
@@ -2617,7 +2628,8 @@ mark { background: #ffe8a3; padding: 0 0.1rem; }
     if (p.decision) return ['Review 1 decided', 'dark'];
     if (p.compare) return ['Brief ready', 'outline'];
     if (p.tagsConfirmed) return ['Tags confirmed', 'outline'];
-    if (p.form.title) return ['Draft', 'grey'];
+    if (p.created) return ['Created', 'outline'];
+    if (p.form.title || p.form.spotId) return ['Draft', 'grey'];
     return ['Not started', 'grey'];
   }
   function homeView() {
@@ -2700,20 +2712,12 @@ mark { background: #ffe8a3; padding: 0 0.1rem; }
   /* ================================================================ */
   function workView() {
     const p = proj();
-    const dec = p.decision;
     return `<div class="work">
       ${stephead()}
       <div class="workbg">
         <section class="card">
-          <div class="card-head">
-            <h2>SSC Project Presentation</h2><span class="ver">Version 2.0 · with Smart Diary (concept)</span>
-            <span class="grow"></span>
-            ${dec ? `<span class="badge dark">Review 1: ${dec.option === 'conditions' ? 'go with ' + dec.conditions.length + ' conditions' : dec.option === 'hold' ? 'hold and rework' : 'go as proposed'}</span>` : ''}
-            <button class="btn outline sm" data-act="open-decision">SSC Review 1</button>
-            <button class="btn outline sm" data-act="ssc-info">SSC information</button>
-            <button class="btn outline sm" data-act="home">Back to main page</button>
-          </div>
-          <div class="card-info"><span>So that the Sustainability Steering Committee can assess the sustainability aspects of your project, please fill in the fields:</span><span>✓ &nbsp; ✕</span></div>
+          ${cardHead(p)}
+          <div class="card-info"><span>So that the Sustainability Steering Committee can assess the sustainability aspects of your project, please fill in the fields:</span><span class="card-icons"><button class="iconbtn" data-act="create-project" title="${p.created ? 'Save changes' : 'Create the project'}" aria-label="Save">✓</button><button class="iconbtn" data-act="home" title="Close and go to the main page" aria-label="Close">✕</button></span></div>
           <div class="card-main">
             ${formGrid(p)}
             ${p.panel.open ? '' : `<button class="sd-open-tab" data-act="panel-open">SMART DIARY</button>`}
@@ -2724,6 +2728,29 @@ mark { background: #ffe8a3; padding: 0 0.1rem; }
       </div>
     </div>`;
   }
+  function cardHead(p) {
+    const dec = p.decision;
+    const own = String(p.id).startsWith('draft-');
+    const status = p.created
+      ? (p.dirty ? '<span class="badge outline">Unsaved changes</span>' : '<span class="badge green">✓ Created</span>')
+      : '<span class="badge grey">Draft · not created yet</span>';
+    const primary = !p.created
+      ? '<button class="btn sm" id="btn-create" data-act="create-project">Create project</button>'
+      : p.dirty ? '<button class="btn sm" id="btn-create" data-act="create-project">Save changes</button>' : '';
+    return `<div class="card-head" id="cardhead">
+      <h2>SSC Project Presentation</h2><span class="ver">Version 2.0 · with Smart Diary (concept)</span>${status}
+      <span class="grow"></span>
+      ${dec ? `<span class="badge dark">Review 1: ${dec.option === 'conditions' ? 'go with ' + dec.conditions.length + ' conditions' : dec.option === 'hold' ? 'hold and rework' : 'go as proposed'}</span>` : ''}
+      ${primary}
+      ${own ? '<button class="btn ghost sm" data-act="delete-project">Delete</button>' : ''}
+      <button class="btn outline sm" data-act="open-decision">SSC Review 1</button>
+      <button class="btn outline sm" data-act="ssc-info">SSC information</button>
+      <button class="btn outline sm" data-act="home">Back to main page</button>
+    </div>`;
+  }
+  // Required-field messages under each field
+  const ferr = (k) => (UI.formErr && UI.formErr[k] ? `<div class="err req-err">${esc(UI.formErr[k])}</div>` : '');
+  const fcls = (k) => (UI.formErr && UI.formErr[k] ? 'field invalid' : 'field');
   function formGrid(p) {
     const f = p.form;
     const np = SD.NEW_PROJECTS[p.id];
@@ -2731,25 +2758,25 @@ mark { background: #ffe8a3; padding: 0 0.1rem; }
     const c = SD.CONTACTS.find((x) => x.id === f.contact);
     return `<div class="form-grid" id="formgrid">
       <div class="col">
-        <div class="field"><label><span class="req">*</span>SPOT ID ${np && empty && !S.guided ? `<a class="hint" style="float:right;font-weight:600;color:var(--red)" data-act="fill-example">Fill in the example ›</a>` : ''}</label>
+        <div class="${fcls('spot')}"><label><span class="req">*</span>SPOT ID ${np && empty && !S.guided ? `<a class="hint" style="float:right;font-weight:600;color:var(--red)" data-act="fill-example">Fill in the example ›</a>` : ''}</label>
           <div class="row"><input id="f-spot" class="grow" data-bind="form.spotId" value="${esc(f.spotId)}" placeholder="10xxxxx"><button class="btn" id="btn-lookup" data-act="lookup">SPOT data lookup</button></div>
-          ${UI.lookupErr ? `<div class="err">${esc(UI.lookupErr)}</div>` : ''}</div>
-        <div class="field"><label><span class="req">*</span>Title</label><input id="f-title" data-bind="form.title" value="${esc(f.title)}"></div>
+          ${UI.lookupErr ? `<div class="err">${esc(UI.lookupErr)}</div>` : ferr('spot')}</div>
+        <div class="${fcls('title')}"><label><span class="req">*</span>Title</label><input id="f-title" data-bind="form.title" value="${esc(f.title)}">${ferr('title')}</div>
         <div class="field"><label>Project description / comments</label><textarea id="f-desc" data-bind="form.description" rows="3">${esc(f.description)}</textarea></div>
-        <div class="field"><label><span class="req">*</span>Contact person / project manager</label>
-          <div class="contact">${c ? `<span class="initials">${esc(c.initials)}</span>` : ''}<select id="f-contact" class="grow" data-bind="form.contact" style="width:auto;flex:1"><option value="">Select…</option>${SD.CONTACTS.map((x) => `<option value="${x.id}" ${x.id === f.contact ? 'selected' : ''}>${esc(x.name)} · ${esc(x.role)}</option>`).join('')}</select></div></div>
+        <div class="${fcls('contact')}"><label><span class="req">*</span>Contact person / project manager</label>
+          <div class="contact">${c ? `<span class="initials">${esc(c.initials)}</span>` : ''}<select id="f-contact" class="grow" data-bind="form.contact" style="width:auto;flex:1"><option value="">Select…</option>${SD.CONTACTS.map((x) => `<option value="${x.id}" ${x.id === f.contact ? 'selected' : ''}>${esc(x.name)} · ${esc(x.role)}</option>`).join('')}</select></div>${ferr('contact')}</div>
         ${tagsStrip()}
       </div>
       <div class="col">
-        <div class="field"><label><span class="req">*</span>Preferred meeting <span class="hint">(held every Thursday at 14:35)</span></label>
-          <select id="f-meeting" data-bind="form.meeting"><option value="">Select a Thursday…</option>${SD.MEETINGS.concat(f.meeting && SD.MEETINGS.indexOf(f.meeting) < 0 ? [f.meeting] : []).map((d) => `<option value="${d}" ${d === f.meeting ? 'selected' : ''}>${dayName(d)}</option>`).join('')}</select></div>
-        <div class="field"><label><span class="req">*</span>How much time (in minutes) should we plan for the presentation?</label><input id="f-min" data-bind="form.minutes" value="${esc(f.minutes)}" placeholder="max. 20 min"></div>
+        <div class="${fcls('meeting')}"><label><span class="req">*</span>Preferred meeting <span class="hint">(held every Thursday at 14:35)</span></label>
+          <select id="f-meeting" data-bind="form.meeting"><option value="">Select a Thursday…</option>${SD.MEETINGS.concat(f.meeting && SD.MEETINGS.indexOf(f.meeting) < 0 ? [f.meeting] : []).map((d) => `<option value="${d}" ${d === f.meeting ? 'selected' : ''}>${dayName(d)}</option>`).join('')}</select>${ferr('meeting')}</div>
+        <div class="${fcls('minutes')}"><label><span class="req">*</span>How much time (in minutes) should we plan for the presentation?</label><input id="f-min" type="number" min="1" max="20" inputmode="numeric" data-bind="form.minutes" value="${esc(f.minutes)}" placeholder="max. 20 min">${ferr('minutes')}</div>
         <div class="field"><label>How sustainable do you rate your project?</label><div class="stars" id="stars">${[1, 2, 3, 4, 5].map((n) => `<button data-act="star" data-n="${n}" aria-label="${n} stars">${n <= f.stars ? '★' : '☆'}</button>`).join('')}</div></div>
-        <div class="field"><label><span class="req">*</span>Attachments</label><div class="attach">${f.attachments.map((a) => `<span class="file-chip"><i></i>${esc(a)}</span>`).join('')}<a data-act="attach">+ Attach file</a></div></div>
+        <div class="${fcls('attach')}"><label><span class="req">*</span>Attachments</label><div class="attach">${f.attachments.map((a) => `<span class="file-chip"><i></i>${esc(a)}</span>`).join('')}<a data-act="attach">+ Attach file</a></div>${ferr('attach')}</div>
         <div>
           ${p.spot && p.spot.manual ? `<div class="redbar">Potential reductions – entered by the PM</div>
           <div class="trip" style="margin-top:.55rem">
-            <div class="field"><label>CO₂ reduction (t CO₂e / year)</label><input id="f-co2" type="number" min="0" step="1" inputmode="numeric" data-bind="spot.co2" value="${esc(p.spot.co2)}" placeholder="e.g. 120"></div>
+            <div class="${fcls('co2')}"><label><span class="req">*</span>CO₂ reduction (t CO₂e / year)</label><input id="f-co2" type="number" min="0" step="1" inputmode="numeric" data-bind="spot.co2" value="${esc(p.spot.co2)}" placeholder="e.g. 120">${ferr('co2')}</div>
             <div class="field"><label>CAPEX</label><select id="f-capex" data-bind="spot.capex"><option value="">Select…</option>${SD.VOCAB.capex.map((o) => `<option ${o === p.spot.capex ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select></div>
             <div class="field"><label>Area</label><select id="f-area" data-bind="spot.area"><option value="">Select…</option>${SD.VOCAB.area.map((o) => `<option ${o === p.spot.area ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select></div>
           </div>
@@ -2776,28 +2803,37 @@ mark { background: #ffe8a3; padding: 0 0.1rem; }
   }
   function tagsStrip() {
     const p = proj();
-    const ready = !!String(p.form.title || '').trim();
-    if (!p.tags) {
-      if (!ready || S.guided) return '<div id="tags"></div>';
-      return `<div id="tags" class="tags-strip"><div class="tags-top"><span class="badge red">New</span><h5>Smart Diary · six tags</h5><span class="grow"></span><button class="btn sm" data-act="suggest-tags">Suggest six tags</button></div>
-        <div class="tags-sub">Suggested from the form fields and the SPOT figures, from Takeda’s controlled vocabulary. The PM confirms or corrects them.</div></div>`;
-    }
-    const n = SD.TAG_TYPES.filter((t) => p.tags[t.key] && p.tags[t.key].checked && p.tags[t.key].value).length;
+    if (!p.tags && S.guided && p.id === DEMO) return '<div id="tags"></div>';
+    const tg = p.tags || emptyTags();
+    const n = SD.TAG_TYPES.filter((t) => tg[t.key] && tg[t.key].checked && tg[t.key].value).length;
+    const mine = SD.TAG_TYPES.filter((t) => tg[t.key] && tg[t.key].from === 'PM' && tg[t.key].value).length;
     const from = p.tagsFrom || {};
-    const head = p.tagsConfirmed ? `${n} tag${n === 1 ? '' : 's'} confirmed${n < 6 ? ` · ${6 - n} left out` : ''}` : n === 6 ? '6 tags suggested' : `${n} of 6 tags ticked`;
+    const hasTitle = !!String(p.form.title || '').trim();
+    const head = !p.tags ? 'Six tags · choose them or let Smart Diary suggest them'
+      : p.tagsConfirmed ? `${n} tag${n === 1 ? '' : 's'} confirmed${n < 6 ? ` · ${6 - n} left out` : ''}`
+        : n === 6 && !mine ? '6 tags suggested' : `${n} of 6 tags ticked`;
+    const suggestBtn = p.tagsConfirmed || p.textChanged ? ''
+      : `<button class="btn sm outline" data-act="suggest-tags" ${hasTitle && !UI.tagBusy ? '' : 'disabled'} title="${hasTitle ? 'Smart Diary reads the title, the description and the SPOT figures. Tags you chose yourself are kept.' : 'Type a title first'}">${p.tagsFrom ? 'Suggest again' : 'Suggest six tags'}</button>`;
+    const confirmBtn = p.tagsConfirmed ? '<span class="btn sm done" aria-live="polite">✓ Confirmed</span>'
+      : !p.tags ? ''
+        : `<button class="btn sm" id="btn-confirm-tags" data-act="confirm-tags" ${UI.tagBusy ? 'disabled' : ''}>${n === 6 ? 'Confirm all' : n === 0 ? 'Confirm without tags' : `Confirm ${n} tag${n === 1 ? '' : 's'}`}</button>`;
+    const source = UI.tagAsk ? '<span class="spin"></span> ' + (liveWriter() ? 'Claude is checking the tags…' : 'Suggesting…')
+      : !p.tagsFrom ? (hasTitle ? 'Choose each tag yourself, or click Suggest.' : 'Choose each tag yourself, or type a title and click Suggest.')
+        : (from.mode === 'claude' ? `Checked by Claude (${esc(from.model)}).` : from.fallback ? 'Rule-based (Claude unavailable).' : 'Rule-based tagger.') + (mine ? ` ${mine} chosen by you, kept when suggesting.` : '');
     return `<div id="tags" class="tags-strip ${p.tagsConfirmed ? 'confirmed' : ''}">
       <div class="tags-top"><span class="badge red">New</span><h5>${head} · Takeda controlled vocabulary</h5><span class="grow"></span>
-        ${p.tagsConfirmed ? '<span class="btn sm done" aria-live="polite">✓ Confirmed</span>' : `<button class="btn sm" id="btn-confirm-tags" data-act="confirm-tags" ${UI.tagBusy ? 'disabled' : ''}>${n === 6 ? 'Confirm all' : n === 0 ? 'Confirm without tags' : `Confirm ${n} tag${n === 1 ? '' : 's'}`}</button>`}</div>
-      <div class="tags-sub">From the form fields and the SPOT figures. Tick a tag to use it, untick it to leave it out, or choose another value. ${UI.tagAsk ? '<span class="spin"></span> ' + (liveWriter() ? 'Claude is checking the tags…' : 'Suggesting…') : from.mode === 'claude' ? `Checked by Claude (${esc(from.model)}).` : from.fallback ? 'Rule-based (Claude unavailable).' : 'Rule-based tagger.'}</div>
+        ${suggestBtn}${confirmBtn}</div>
+      <div class="tags-sub">From the form fields and the SPOT figures. Tick a tag to use it, untick it to leave it out, or choose another value. ${source}</div>
       ${p.textChanged ? `<div class="stale">The title, description or SPOT figures changed after these tags were suggested. <button class="btn xs" data-act="suggest-tags">Suggest the tags again</button></div>` : p.tagsStale && !p.tagsConfirmed ? '<div class="stale">The tags changed. Confirm them to update the reference brief.</div>' : ''}
-      ${!UI.tagBusy && n === 0 && !p.textChanged ? '<div class="stale">No tag could be suggested: the title and description do not say what the project does. Add details, or choose tags yourself.</div>' : ''}
+      ${p.tagsFrom && !UI.tagBusy && n === 0 && !p.textChanged ? '<div class="stale">No tag could be suggested: the title and description do not say what the project does. Add details, or choose tags yourself.</div>' : ''}
       <div class="tags-grid">${SD.TAG_TYPES.map((t) => {
-        const v = p.tags[t.key] || { value: '' };
+        const v = tg[t.key] || { value: '' };
         const on = v.checked && v.value;
+        const state = on ? '' : v.value ? 'off' : 'empty';
         const opts = SD.VOCAB[t.key];
-        return `<div class="tag ${on ? '' : 'off'}" title="${esc(on ? (v.reason || ('from ' + (v.from || ''))) : 'Left out: not used in the search')}"><span class="tk">${t.label}</span>
+        return `<div class="tag ${state}" title="${esc(on ? (v.reason || ('from ' + (v.from || ''))) : v.value ? 'Left out: not used in the search' : 'Not chosen yet')}"><span class="tk">${t.label}</span>
           <select data-tag="${t.key}" aria-label="${t.label}"><option value="">choose…</option>${opts.map((o) => `<option ${o === v.value ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select>
-          <span class="from">${on ? esc(v.from === 'Claude' ? 'Claude' : v.from || '') : 'left out'}</span>
+          <span class="from">${on ? esc(v.from === 'Claude' ? 'Claude' : v.from || '') : v.value ? 'left out' : 'choose'}</span>
           <button class="box ${on ? 'on' : ''}" data-act="tag-toggle" data-k="${t.key}" aria-pressed="${on ? 'true' : 'false'}" aria-label="${on ? 'Leave out' : 'Use'} ${t.label}">${on ? '✓' : ''}</button></div>`;
       }).join('')}</div>
       ${p.tagsConfirmed && !p.panel.open && !S.guided ? `<div class="tags-foot">Smart Diary is ready. <button class="btn sm" data-act="panel-open" data-tab="compare">Find comparable projects ›</button></div>` : ''}
@@ -3217,9 +3253,47 @@ mark { background: #ffe8a3; padding: 0 0.1rem; }
     if (p.tags && changed) { p.textChanged = true; tagsChanged(p, true); }
     return true;
   }
+  // The required fields of the SSC App form (marked *)
+  function validateForm(p) {
+    const f = p.form, e = {};
+    const id = String(f.spotId || '').trim();
+    if (!id) e.spot = 'Enter the SPOT ID.';
+    else if (!p.spot || p.spotFor !== id) e.spot = 'Run the SPOT data lookup for this ID.';
+    else if (p.spot.manual && !(Number(p.spot.co2) > 0)) e.co2 = 'Enter the expected CO₂ reduction.';
+    if (!String(f.title || '').trim()) e.title = 'Enter a title.';
+    if (!f.contact) e.contact = 'Choose the contact person.';
+    if (!f.meeting) e.meeting = 'Choose a Thursday.';
+    const m = Number(f.minutes);
+    if (!String(f.minutes || '').trim()) e.minutes = 'Enter the minutes you need.';
+    else if (!(m >= 1 && m <= 20)) e.minutes = 'Between 1 and 20 minutes.';
+    if (!f.attachments.length) e.attach = 'Attach the approval deck (draft).';
+    return e;
+  }
+  function createProject(p) {
+    const e = validateForm(p);
+    UI.formErr = e;
+    const n = Object.keys(e).length;
+    if (n) {
+      render();
+      const first = document.querySelector('.field.invalid');
+      if (first) first.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      toast(n === 1 ? 'One required field is missing.' : n + ' required fields are missing.', 'warn');
+      return false;
+    }
+    const first = !p.created;
+    p.created = p.created || Date.now();
+    p.savedAt = Date.now();
+    p.dirty = false;
+    addLog(first ? 'Project created' : 'Project saved', `${p.form.spotId} · ${p.form.title}`);
+    render(); save();
+    toast(first ? `Project ${p.form.spotId} created` : 'Changes saved');
+    const missing = !p.tags || SD.TAG_TYPES.some((t) => !(p.tags[t.key] && p.tags[t.key].value));
+    if (first && missing && !p.tagsConfirmed && !S.guided && String(p.form.title || '').trim()) suggestTags(p, false);
+    return true;
+  }
   async function fillForm(p, a) {
     const np = SD.NEW_PROJECTS[p.id] || SD.NEW_PROJECTS[DEMO];
-    if (!a) { setForm(p, np); doLookup(p); render(); return; }
+    if (!a) { setForm(p, np); doLookup(p); createProject(p); return; }
     await sleep(500);
     await typeInto('#f-spot', np.spotId, 12);
     await sleep(250); flash('#btn-lookup'); await sleep(300);
@@ -3231,22 +3305,27 @@ mark { background: #ffe8a3; padding: 0 0.1rem; }
     await sleep(250); await typeInto('#f-min', String(np.minutes), 8);
     for (let n = 1; n <= np.stars; n++) { await sleep(220); p.form.stars = n; render(); }
     await sleep(300); p.form.attachments = [np.attachment]; render();
-    save();
+    await sleep(500); flash('#btn-create'); await sleep(350);
+    createProject(p);
   }
   async function suggestTags(p, a) {
     const form = { title: p.form.title, description: p.form.description, spot: p.spot || {} };
     const mark = (t) => { const o = {}; Object.keys(t).forEach((k) => (o[k] = Object.assign({}, t[k], { checked: false }))); return o; };
+    // Tags the PM chose by hand are kept; only the others are suggested.
+    const keep = {};
+    if (p.tags) SD.TAG_TYPES.forEach((t) => { const v = p.tags[t.key]; if (v && v.from === 'PM' && v.value) keep[t.key] = Object.assign({}, v, { checked: true }); });
+    const withKept = (t) => Object.assign(mark(t), keep);
     p.tagsConfirmed = false;
     p.textChanged = false;
     if (p.compare) p.tagsStale = true;
-    p.tags = mark(E.suggestTags(form));
+    p.tags = withKept(E.suggestTags(form));
     p.tagsFrom = { mode: 'offline', model: 'rule-based tagger' };
     refresh('stephead');
     UI.tagBusy = true; UI.tagAsk = liveWriter();
     refresh('tags');
     const res = await genTags(form);
     UI.tagAsk = false;
-    p.tags = mark(res.tags);
+    p.tags = withKept(res.tags);
     p.tagsFrom = res.writer;
     refresh('tags');
     // Tick one by one in presenter mode; Confirm stays disabled until all are ticked.
@@ -3267,6 +3346,11 @@ mark { background: #ffe8a3; padding: 0 0.1rem; }
     addLog('Tags confirmed', SD.TAG_TYPES.map((t) => kept[t.key]).filter(Boolean).join(' · ') + (out.length ? ' · left out: ' + out.join(', ') : ''));
     refresh('tags'); refresh('stephead');
   }
+  function emptyTags() {
+    const o = {};
+    SD.TAG_TYPES.forEach((t) => { o[t.key] = { value: '', from: 'choose', checked: false }; });
+    return o;
+  }
   function tagsChanged(p, quiet) {
     if (p.tagsConfirmed) { p.tagsConfirmed = false; p.tagsStale = !!p.compare; }
     else if (p.compare) p.tagsStale = true;
@@ -3284,7 +3368,7 @@ mark { background: #ffe8a3; padding: 0 0.1rem; }
     if (!wasOpen) UI.openPanelNext = true;
   }
   async function runCompare(p, a, keepPipe) {
-    if (!p.tagsConfirmed) { toast('Confirm the six tags first.'); return; }
+    if (!p.tagsConfirmed) { toast('Confirm the six tags first.', 'warn'); return; }
     const q = queryOf(p);
     openPanel(p, 'compare');
     p.compare = null; p.used = []; p.notRelevant = []; p.tagsStale = false;
@@ -3338,7 +3422,7 @@ mark { background: #ffe8a3; padding: 0 0.1rem; }
   }
   function scrollAsk() { const b = $('.sd-body'); if (b) b.scrollTop = b.scrollHeight; }
   function openDecision(p) {
-    if (!p.compare) { toast('Run Compare first: the decision uses the reference brief.'); return false; }
+    if (!p.compare) { toast('Run Compare first: the decision uses the reference brief.', 'warn'); return false; }
     const conds = p.compare.brief.conditions;
     if (p.decision) {
       const checked = {};
@@ -3376,7 +3460,7 @@ mark { background: #ffe8a3; padding: 0 0.1rem; }
     };
   }
   async function draftEntry(p, a) {
-    if (!p.decision) { toast('Record the Review 1 decision first.'); return; }
+    if (!p.decision) { toast('Record the Review 1 decision first.', 'warn'); return; }
     UI.drafting = true; UI.editing = false;
     refresh('panel');
     const res = await genDraft(draftInput(p));
@@ -3421,7 +3505,7 @@ mark { background: #ffe8a3; padding: 0 0.1rem; }
     S.projects[NEXT] = newProject(NEXT);
     const p = proj(NEXT);
     S.pid = NEXT; S.view = 'work';
-    setForm(p, SD.NEW_PROJECTS[NEXT]); doLookup(p);
+    setForm(p, SD.NEW_PROJECTS[NEXT]); doLookup(p); p.created = Date.now();
     render();
     await suggestTags(p, false);
     await confirmTags(p, false);
@@ -3472,7 +3556,7 @@ mark { background: #ffe8a3; padding: 0 0.1rem; }
   }
   const DONE = [
     () => true,
-    () => !!(proj(DEMO).spot && proj(DEMO).form.title && proj(DEMO).form.stars),
+    () => !!(proj(DEMO).spot && proj(DEMO).form.title && proj(DEMO).form.stars && proj(DEMO).created),
     () => proj(DEMO).tagsConfirmed,
     () => !!proj(DEMO).compare && !proj(DEMO).tagsStale,
     () => proj(DEMO).used.length > 0,
@@ -3618,7 +3702,7 @@ mark { background: #ffe8a3; padding: 0 0.1rem; }
     else if (n === 6) navTo('loop');
     else if (n === 4) { S.view = 'work'; if (openDecision(p)) render(); }
     else {
-      if (!p.tagsConfirmed) { S.view = 'work'; render(); toast('Confirm the six tags first.'); return; }
+      if (!p.tagsConfirmed) { S.view = 'work'; render(); toast('Confirm the six tags first.', 'warn'); return; }
       navTo(['', '', 'compare', 'ask', '', 'write'][n]);
     }
   }
@@ -3636,6 +3720,18 @@ mark { background: #ffe8a3; padding: 0 0.1rem; }
       if (!UI.resetArmed) { UI.resetArmed = true; el.textContent = 'Click again to reset'; setTimeout(() => { UI.resetArmed = false; if (el.isConnected) el.textContent = 'Reset demo data'; }, 4000); return; }
       UI.resetArmed = false; resetDemo(); S.log = []; S.guided = null; S.view = 'home'; for (const k in CACHE) delete CACHE[k]; render(); save(); toast('Demo data reset');
     },
+    'create-project': () => { const p = proj(); if (S.view === 'work') createProject(p); },
+    'delete-project': (d, el) => {
+      const p = proj();
+      if (!String(p.id).startsWith('draft-')) return;
+      if (UI.delArmed !== p.id) { UI.delArmed = p.id; el.textContent = 'Click again to delete'; setTimeout(() => { UI.delArmed = null; if (el.isConnected) el.textContent = 'Delete'; }, 4000); return; }
+      UI.delArmed = null;
+      const label = p.form.title || p.form.spotId || 'Draft';
+      delete S.projects[p.id];
+      S.pid = DEMO; S.view = 'home'; UI.formErr = {};
+      addLog('Project deleted', label);
+      render(); save(); toast('Deleted: ' + label);
+    },
     tier: (d) => { S.tier = d.v; for (const k in CACHE) delete CACHE[k]; refresh('overlay'); save(); },
     'warm-claude': async () => {
       if (!SAMPLE) return;
@@ -3644,8 +3740,8 @@ mark { background: #ffe8a3; padding: 0 0.1rem; }
       catch (e) { UI.warm = e && e.code === 'not_granted' ? 'Not allowed: the demo will use the offline writer.' : 'Claude did not answer (' + ((e && e.code) || 'error') + '). The demo will use the offline writer if this persists.'; }
       refresh('overlay');
     },
-    'open-project': (d) => { if (d.pid !== DEMO) S.guided = null; S.pid = d.pid; proj(d.pid); S.view = 'work'; UI.lookupErr = ''; UI.callout = null; render(); save(); },
-    'new-project': () => { S.guided = null; UI.callout = null; UI.lookupErr = ''; S.drafts = (S.drafts || 0) + 1; const id = 'draft-' + S.drafts; S.projects[id] = newProject(id); S.pid = id; S.view = 'work'; render(); save(); },
+    'open-project': (d) => { if (d.pid !== DEMO) S.guided = null; S.pid = d.pid; proj(d.pid); S.view = 'work'; UI.lookupErr = ''; UI.formErr = {}; UI.callout = null; render(); save(); },
+    'new-project': () => { S.guided = null; UI.callout = null; UI.lookupErr = ''; UI.formErr = {}; S.drafts = (S.drafts || 0) + 1; const id = 'draft-' + S.drafts; S.projects[id] = newProject(id); S.pid = id; S.view = 'work'; render(); save(); },
     'hero-search': () => {
       const q = ($('#hero-q') || {}).value || UI.heroQ;
       UI.heroQ = q;
@@ -3659,18 +3755,18 @@ mark { background: #ffe8a3; padding: 0 0.1rem; }
     'home-new-from-search': () => { S.guided = null; UI.lookupErr = ''; S.drafts = (S.drafts || 0) + 1; const id = 'draft-' + S.drafts; const p = (S.projects[id] = newProject(id)); p.form.title = UI.heroQ; S.pid = id; S.view = 'work'; UI.homeRes = null; render(); save(); },
     'fill-example': () => { const p = proj(); fillForm(p, false); save(); },
     lookup: () => { const p = proj(); p.form.spotId = ($('#f-spot') || {}).value || p.form.spotId; if (doLookup(p)) { const np = Object.values(SD.NEW_PROJECTS).find((x) => x.spotId === p.form.spotId.trim()); if (np && !p.form.title && !String(p.id).startsWith('10')) p.form.title = np.title; } render(); save(); },
-    star: (d) => { const p = proj(); p.form.stars = Number(d.n); render(); save(); },
+    star: (d) => { const p = proj(); p.form.stars = Number(d.n); if (p.created && !G.busy) p.dirty = true; render(); save(); },
     attach: () => {
       const inp = document.createElement('input');
       inp.type = 'file';
-      inp.onchange = () => { const f = inp.files && inp.files[0]; if (f) { const p = proj(); p.form.attachments.push(f.name); render(); save(); toast('Attached ' + f.name + ' (demo: only the name is kept)'); } };
+      inp.onchange = () => { const f = inp.files && inp.files[0]; if (f) { const p = proj(); p.form.attachments.push(f.name); if (UI.formErr) delete UI.formErr.attach; if (p.created) p.dirty = true; render(); save(); toast('Attached ' + f.name + ' (demo: only the name is kept)'); } };
       inp.click();
     },
     'suggest-tags': () => { if (!UI.tagBusy) suggestTags(proj(), false); },
     'tag-toggle': (d) => {
       const p = proj(); const t = p.tags && p.tags[d.k];
-      if (!t || UI.tagBusy) return;
-      if (!t.value) { toast('Choose a value first, then tick the tag.'); return; }
+      if (UI.tagBusy) return;
+      if (!t || !t.value) { toast('Choose a value first, then tick the tag.', 'warn'); return; }
       t.checked = !t.checked;
       tagsChanged(p);
     },
@@ -3755,15 +3851,24 @@ mark { background: #ffe8a3; padding: 0 0.1rem; }
     if (b.startsWith('rec.')) { setPath(UI, b, e.target.value); if (e.target.tagName === 'INPUT') { clearTimeout(UI.recT); UI.recT = setTimeout(() => { const pos = e.target.selectionStart; render(); const i = document.querySelector('[data-bind="rec.q"]'); if (i) { i.focus(); i.setSelectionRange(pos, pos); } }, 200); } return; }
     const p = proj();
     setPath(p, b, e.target.value);
-    if (b === 'form.title' || b === 'form.description') {
-      if (p.tags && !p.tagsConfirmed && !S.guided) { /* PM edits after a suggestion: offer to re-suggest */ }
-    }
+    clearFieldError(e.target);
+    if (p.created && !p.dirty && (b.startsWith('form.') || b.startsWith('spot.')) && !G.busy) { p.dirty = true; refresh('cardhead'); }
     save();
   });
+  function clearFieldError(el) {
+    const fld = el.closest && el.closest('.field.invalid');
+    if (!fld) return;
+    fld.classList.remove('invalid');
+    const er = fld.querySelector('.req-err');
+    if (er) er.remove();
+    const key = { 'form.spotId': 'spot', 'form.title': 'title', 'form.contact': 'contact', 'form.meeting': 'meeting', 'form.minutes': 'minutes', 'spot.co2': 'co2' }[el.dataset.bind];
+    if (key && UI.formErr) delete UI.formErr[key];
+  }
   document.addEventListener('change', (e) => {
     const t = e.target;
     if (t.dataset && t.dataset.tag) {
       const p = proj();
+      if (!p.tags) p.tags = emptyTags();
       p.tags[t.dataset.tag] = { value: t.value, from: 'PM', checked: !!t.value };
       tagsChanged(p);
       return;
@@ -3773,6 +3878,8 @@ mark { background: #ffe8a3; padding: 0 0.1rem; }
     if (b.startsWith('rec.')) { setPath(UI, b, t.value); render(); return; }
     const pj = proj();
     setPath(pj, b, t.value);
+    clearFieldError(t);
+    if (pj.created && !pj.dirty && (b.startsWith('form.') || b.startsWith('spot.')) && !G.busy) { pj.dirty = true; refresh('cardhead'); }
     if (b === 'form.contact') render();
     if (b === 'form.title' && !pj.tags) refresh('tags');
     if ((b === 'form.title' || b === 'form.description' || b.startsWith('spot.')) && pj.tags) { pj.textChanged = true; tagsChanged(pj); }
